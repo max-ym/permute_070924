@@ -1,0 +1,29 @@
+permute:
+  version: 0.1
+  type: transform
+
+is_terminated:
+  output: Boolean
+  self: employment_record
+  define: |
+    self.termination_date.is_some()
+
+is_active:
+  output: Boolean
+  self: employment_record
+  define: |
+    !self.is_terminated()
+
+job_title:
+  output: Option<String>
+  self: employment_record
+  define: |
+    self.meta
+      .get("job")?
+      .get("title")
+
+date_fmt:
+  output: String
+  self: Date
+  define: |
+    self.format("%Y-%m-%d")

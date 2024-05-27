@@ -1,0 +1,14 @@
+permute:
+  version: 0.1
+  type: main
+
+main:
+  name: Sample Process Name
+  pipeline:
+    - employment_record:
+      filter:
+        date_from: 2019-01-01
+        date_to: 2019-12-31
+        exclude_terminations: Yes
+    - sink:
+      path: output.csv

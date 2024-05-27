@@ -1,0 +1,63 @@
+permute:
+  version: 0.1
+  type: sink
+
+  # Select generator "csv". This generator is implementation specific, and not defined
+  # by the Permute specification itself. It can basically be any custom generator implementation.
+  select: csv
+
+# Some field defined by the sink "csv".
+csv:
+  # This hypothetical generator would have a field "row_sequence" that would be used to
+  # generate a sequence of row numbers.
+  row_sequence:
+    start: 1
+  # This hypothetical generator would have a field "date_fmt" that would be used to
+  # format a date as a string.
+  date_fmt: transform::date_fmt # This is a reference to the transform's "date_fmt".
+
+  # For each employment record...
+  each: employment_record
+  # ...write the following fields to the CSV file.
+  write:
+    - row_number
+    - employee_id
+    - hire_date
+    - termination_date
+    - salary
+    - job_title
+  header: # Optional header row for the CSV file from this hypothetical generator.
+    - "Row Number"
+    - "Employee ID"
+    - "Hire Date"
+    - "Termination Date"
+    - "Salary"
+    - "Job Title"
+
+row_number:
+  type: Integer
+  from: csv.row_sequence
+
+employee_id:
+  type: String
+  from: employment_record.employee_id
+  format: '^SID\d{6}$'
+
+hire_date:
+  type: Date
+  from: employment_record.hire_date
+
+termination_date:
+  type: Date | ()
+  from: |
+    employment_record.termination_date.unwrap_or(())
+
+salary:
+  type: String
+  from: employment_record.salary
+  format: '${:.2}'
+
+job_title:
+  type: String | ()
+  from: |
+    employment_record.job_title.unwrap_or(())

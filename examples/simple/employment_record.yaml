@@ -1,0 +1,34 @@
+permute:
+  version: 0.1
+  type: source
+
+filters:
+  date_from:
+    type: Option<Date>
+    default: None
+  date_to:
+    type: Option<Date>
+    default: None
+  exclude_terminations:
+    type: Option<Boolean>
+    default: None
+
+columns:
+  employee_id:
+    type: RegexString<Pattern = '^SID\d{6}$'>
+  hire_date:
+    type: Date
+  termination_date:
+    type: Option<Date>
+  salary:
+    type: Moneraty
+  meta:
+    type: Option<Map<String, Any>>
+
+types:
+  Monetary:
+    type: FixedPoint<Precision = 2>
+    explain: |
+      A fixed-point non-negative number with two decimal places to represent monetary value.
+    check:
+      - self >= 0.0
