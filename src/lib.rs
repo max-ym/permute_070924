@@ -1,5 +1,5 @@
 //! Permute is a framework and a DSL to describe data transformations.
-//! It is designed to be used in a data processing pipeline, 
+//! It is designed to be used in a data processing pipeline,
 //! where data is transformed from one form to another.
 //! Descriptory YAML files are used to describe the data, formats, transformations, validation
 //! and other aspects of the data processing.
@@ -14,6 +14,14 @@
 /// types and formats, so that framework can validate correctness and compatibility.
 pub mod domain;
 
+/// Module that reads the YAML file and converts it to the internal representation
+/// that can be used by the framework to perform analysis.
+pub mod project;
+
 /// Module to allow writing expressions in the YAML file, that can be used to
 /// calculate values or transform the data.
 pub mod expr;
+
+/// Module that contains the context, which can contain all items, types, and other information
+/// from YAML files that is needed to validate configuration against [crate::domain::Domain].
+pub mod ctx;

@@ -22,9 +22,4 @@ impl Expression {
     pub fn to_pretty_string(&self) -> String {
         todo!("Implement to_pretty_string for Expression")
     }
-
-    /// Whether this expression can be evaluated at compile time.
-    pub fn is_const(&self) -> bool {
-        todo!("Implement is_const for Expression")
-    }
 }
