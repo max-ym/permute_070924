@@ -1,6 +1,10 @@
+# Permute header to indicate to framework that this is a configuration file.
 permute:
-  version: 0.1
-  type: main
+  version:
+    0.1 # Version of the Permute specification. This is required.
+    # One project can have multiple versions of the Permute specification.
+    # This allows for backwards compatibility and incremental improvements.
+  type: main # Declares this file as a main file. This is required.
 
 main:
   name: Sample Process Name

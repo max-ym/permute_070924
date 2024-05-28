@@ -1,10 +1,13 @@
+# Transform files define the transformation logic for a given entity type.
+# New types can be defined in the transform file as well.
+
 permute:
   version: 0.1
   type: transform
 
 is_terminated:
   output: Boolean
-  self: employment_record
+  self: employment_record # This is a reference to the employment_record entity type.
   define: |
     self.termination_date.is_some()
 

@@ -1,0 +1,10 @@
+permute:
+  version: 0.1
+  type: transform
+
+Monetary:
+  type: FixedPoint<Precision = 2>
+  explain: |
+    A fixed-point non-negative number with two decimal places to represent monetary value.
+  check:
+    - self >= 0.0

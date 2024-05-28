@@ -1,10 +1,13 @@
 permute:
   version: 0.1
   type: sink
+  use:
+    - transform::*
 
-  # Select generator "csv". This generator is implementation specific, and not defined
-  # by the Permute specification itself. It can basically be any custom generator implementation.
-  select: csv
+# Select sink "csv". This generator is implementation specific, and not defined
+# by the Permute specification itself. It can basically be any custom generator implementation
+# provided to the framework with this name.
+sink: csv
 
 # Some field defined by the sink "csv".
 csv:
@@ -15,6 +18,11 @@ csv:
   # This hypothetical generator would have a field "date_fmt" that would be used to
   # format a date as a string.
   date_fmt: transform::date_fmt # This is a reference to the transform's "date_fmt".
+
+  none_fmt: # Function to format None values.
+    output: String
+    self: Option<_> # This is a generic type definition for the Option type.
+    define: "" # display empty string for None
 
   # For each employment record...
   each: employment_record
@@ -35,29 +43,24 @@ csv:
     - "Job Title"
 
 row_number:
-  type: Integer
-  from: csv.row_sequence
+  output: Integer
+  self: csv
+  define: csv.row_sequence.next()
 
 employee_id:
-  type: String
-  from: employment_record.employee_id
-  format: '^SID\d{6}$'
+  output: # Following syntax creates a new anonymous type definition for the employee_id field.
+    type: String
+    check:
+      - regex: '^SID\d{6}$' # This is a regex pattern that would be used to validate the employee_id.
+  self: employment_record
+  define: self.employee_id
 
 hire_date:
-  type: Date
-  from: employment_record.hire_date
-
-termination_date:
-  type: Date | ()
-  from: |
-    employment_record.termination_date.unwrap_or(())
+  output: Date
+  self: employment_record
+  define: self.hire_date
 
 salary:
-  type: String
-  from: employment_record.salary
-  format: '${:.2}'
-
-job_title:
-  type: String | ()
-  from: |
-    employment_record.job_title.unwrap_or(())
+  output: String
+  self: employment_record
+  define: employment_record.salary.format("${:.2}")

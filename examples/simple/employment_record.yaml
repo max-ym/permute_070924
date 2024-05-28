@@ -1,6 +1,8 @@
 permute:
   version: 0.1
   type: source
+  use:
+    - monetary::*
 
 filters:
   date_from:
@@ -24,11 +26,3 @@ columns:
     type: Moneraty
   meta:
     type: Option<Map<String, Any>>
-
-types:
-  Monetary:
-    type: FixedPoint<Precision = 2>
-    explain: |
-      A fixed-point non-negative number with two decimal places to represent monetary value.
-    check:
-      - self >= 0.0
