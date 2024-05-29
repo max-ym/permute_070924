@@ -4,29 +4,27 @@
 permute:
   version: 0.1
   type: transform
+  use:
+    - employment_record
 
-is_terminated:
+employment_record.is_terminated:
   output: Boolean
-  self: employment_record # This is a reference to the employment_record entity type.
   define: |
     self.termination_date.is_some()
 
-is_active:
+employment_record.is_active:
   output: Boolean
-  self: employment_record
   define: |
     !self.is_terminated()
 
-job_title:
+employment_record.job_title:
   output: Option<String>
-  self: employment_record
   define: |
     self.meta
       .get("job")?
       .get("title")
 
-date_fmt:
+Date.date_fmt:
   output: String
-  self: Date
   define: |
     self.format("%Y-%m-%d")

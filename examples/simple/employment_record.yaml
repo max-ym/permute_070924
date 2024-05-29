@@ -17,7 +17,10 @@ filters:
 
 columns:
   employee_id:
-    type: RegexString<Pattern = '^SID\d{6}$'>
+    type:
+      type: String
+      check:
+        - regex: '^SID\d{6}$'
   hire_date:
     type: Date
   termination_date:

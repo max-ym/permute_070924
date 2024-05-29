@@ -8,3 +8,20 @@ Monetary:
     A fixed-point non-negative number with two decimal places to represent monetary value.
   check:
     - self >= 0.0
+
+DollarCent:
+  type:
+    - dolar: Integer
+    - cent: Integer
+  explain: |
+    Example of alternative representation of monetary value, with named fields.
+  check:
+    - self.dolar >= 0
+    - self.cent >= 0
+    - self.cent < 100
+
+# "Into" implementation for DollarCent to Monetary conversion.
+DollarCent.into::<Monetary>:
+  output: Monetary
+  define: |
+    Monetary(FixedPoint::<Precision = 2>::new(self.dolar * 100 + self.cent))

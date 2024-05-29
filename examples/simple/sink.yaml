@@ -26,14 +26,17 @@ csv:
 
   # For each employment record...
   each: employment_record
+  as: e # Alias the employment record instance as "e".
   # ...write the following fields to the CSV file.
   write:
-    - row_number
-    - employee_id
-    - hire_date
-    - termination_date
-    - salary
-    - job_title
+    - csv.row_sequence.next()
+    - e.employee_id
+    - e.hire_date
+    - e.termination_date
+      # Example of using a sink defined fn `salary` of the same name as field in `employment_record`.
+      # Without explicit path, won't compile due to ambiguity error.
+    - self::salary(e)
+    - e.job_title
   header: # Optional header row for the CSV file from this hypothetical generator.
     - "Row Number"
     - "Employee ID"
@@ -42,25 +45,7 @@ csv:
     - "Salary"
     - "Job Title"
 
-row_number:
-  output: Integer
-  self: csv
-  define: csv.row_sequence.next()
-
-employee_id:
-  output: # Following syntax creates a new anonymous type definition for the employee_id field.
-    type: String
-    check:
-      - regex: '^SID\d{6}$' # This is a regex pattern that would be used to validate the employee_id.
-  self: employment_record
-  define: self.employee_id
-
-hire_date:
-  output: Date
-  self: employment_record
-  define: self.hire_date
-
-salary:
+employment_record.salary:
   output: String
-  self: employment_record
-  define: employment_record.salary.format("${:.2}")
+  # Call the `format` method on the `salary` field of the `employment_record` entity.
+  define: self.salary.format("${:.2}")
