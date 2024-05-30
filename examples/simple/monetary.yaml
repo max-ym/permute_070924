@@ -2,15 +2,15 @@ permute:
   version: 0.1
   type: transform
 
-Monetary:
-  type: FixedPoint<Precision = 2>
+type Monetary:
+  inner: FixedPoint<Precision = 2>
   explain: |
     A fixed-point non-negative number with two decimal places to represent monetary value.
   check:
     - self >= 0.0
 
-DollarCent:
-  type:
+type DollarCent:
+  inner:
     - dolar: Integer
     - cent: Integer
   explain: |
@@ -21,7 +21,8 @@ DollarCent:
     - self.cent < 100
 
 # "Into" implementation for DollarCent to Monetary conversion.
-DollarCent.into::<Monetary>:
-  output: Monetary
-  define: |
-    Monetary(FixedPoint::<Precision = 2>::new(self.dolar * 100 + self.cent))
+impl Into<Monetary> for DollarCent:
+  fn into:
+    output: Monetary
+    define: |
+      Monetary(FixedPoint::<Precision = 2>::new(self.dolar * 100 + self.cent))

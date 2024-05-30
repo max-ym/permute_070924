@@ -4,27 +4,27 @@
 permute:
   version: 0.1
   type: transform
-  use:
-    - employment_record
 
-employment_record.is_terminated:
-  output: Boolean
-  define: |
-    self.termination_date.is_some()
+impl employment_record:
+  fn is_terminated:
+    output: Boolean
+    define: |
+      self.termination_date.is_some()
 
-employment_record.is_active:
-  output: Boolean
-  define: |
-    !self.is_terminated()
+  fn is_active:
+    output: Boolean
+    define: |
+      !self.is_terminated()
 
-employment_record.job_title:
-  output: Option<String>
-  define: |
-    self.meta
-      .get("job")?
-      .get("title")
+  fn job_title:
+    output: Option<String>
+    define: |
+      self.meta
+        .get("job")?
+        .get("title")
 
-Date.date_fmt:
-  output: String
-  define: |
-    self.format("%Y-%m-%d")
+impl Date:
+  fn date_fmt:
+    output: String
+    define: |
+      self.format("%Y-%m-%d")

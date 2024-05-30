@@ -20,9 +20,9 @@ csv:
   date_fmt: transform::date_fmt # This is a reference to the transform's "date_fmt".
 
   none_fmt: # Function to format None values.
-    output: String
-    self: Option<_> # This is a generic type definition for the Option type.
-    define: "" # display empty string for None
+    fn: # Anonymous function.
+      output: String
+      define: "" # display empty string for None
 
   # For each employment record...
   each: employment_record
@@ -45,7 +45,8 @@ csv:
     - "Salary"
     - "Job Title"
 
-employment_record.salary:
-  output: String
-  # Call the `format` method on the `salary` field of the `employment_record` entity.
-  define: self.salary.format("${:.2}")
+impl employment_record:
+  fn salary:
+    output: String
+    # Call the `format` method on the `salary` field of the `employment_record` entity.
+    define: self.salary.format("${:.2}")
