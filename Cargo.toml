@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 thiserror = "1"
 lazy-regex = "3"
+smallvec = "1.13"
