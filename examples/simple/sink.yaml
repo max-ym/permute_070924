@@ -35,7 +35,7 @@ csv:
     - e.termination_date
       # Example of using a sink defined fn `salary` of the same name as field in `employment_record`.
       # Without explicit path, won't compile due to ambiguity error.
-    - self::salary(e)
+    - self::employment_record::salary(e)
     - e.job_title
   header: # Optional header row for the CSV file from this hypothetical generator.
     - "Row Number"
