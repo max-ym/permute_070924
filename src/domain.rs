@@ -18,6 +18,7 @@ pub struct Domain {
     sinks: Vec<Sink>,
     sources: Vec<Source>,
     types: Vec<CustomType>,
+    fns: Vec<CustomFn>,
 }
 
 impl Domain {
@@ -32,6 +33,10 @@ impl Domain {
     pub fn custom_type(&self, name: &str) -> Option<&CustomType> {
         self.types.iter().find(|custom_type| custom_type.name == name)
     }
+
+    pub fn custom_fn(&self, name: &str) -> Option<&CustomFn> {
+        self.fns.iter().find(|custom_fn| custom_fn.name == name)
+    }
 }
 
 #[derive(Debug)]
@@ -39,6 +44,7 @@ pub struct DomainBuilder {
     sinks: Vec<Sink>,
     sources: Vec<Source>,
     types: Vec<CustomType>,
+    fns: Vec<CustomFn>,
 }
 
 impl DomainBuilder {
@@ -47,6 +53,7 @@ impl DomainBuilder {
             sinks: Vec::with_capacity(capacity),
             sources: Vec::with_capacity(capacity),
             types: Vec::with_capacity(capacity),
+            fns: Vec::with_capacity(capacity),
         }
     }
 
@@ -60,6 +67,10 @@ impl DomainBuilder {
 
     pub fn add_type(&mut self, custom_type: CustomType) {
         self.types.push(custom_type);
+    }
+
+    pub fn add_fn(&mut self, custom_fn: CustomFn) {
+        self.fns.push(custom_fn);
     }
 
     /// Validate all the items in the domain and build the Domain struct.
@@ -214,6 +225,9 @@ pub enum ParamType {
 
     /// List of expressions that can be evaluated to a value.
     ListExprs,
+
+    /// A single expression that can be evaluated to a value.
+    Value,
 }
 
 #[derive(Debug)]
@@ -253,7 +267,6 @@ pub struct SourceColumn {
 pub struct CustomType {
     pub name: ItemName,
     pub fields: Vec<CustomTypeField>,
-    pub fns: Vec<CustomTypeFn>,
 }
 
 #[derive(Debug)]
@@ -263,8 +276,9 @@ pub struct CustomTypeField {
 }
 
 #[derive(Debug)]
-pub struct CustomTypeFn {
+pub struct CustomFn {
     pub name: ItemName,
+    pub self_ty: Option<DataType>,
     pub args: Vec<DataType>,
     pub ret: DataType,
 }
