@@ -1,9 +1,3 @@
-permute:
-  version: 0.1
-  type: source
-  use:
-    - monetary::*
-
 # This file defines the schema for an employment record source.
 # Permute framework will use this schema to validate the data source, which should be
 # registered from the implementation code. If this schema is not compatible with the registered
@@ -13,6 +7,12 @@ permute:
 # The reason it is done that way is to allow the implementation code to be decoupled from the
 # configuration file. Also, any Permute validators would be able to validate YAML configuration
 # without knowing the implementation specifics.
+
+permute:
+  version: 0.1
+  type: source
+  use:
+    - monetary::*
 
 filters:
   date_from:
