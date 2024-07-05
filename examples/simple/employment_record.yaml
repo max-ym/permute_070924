@@ -4,6 +4,16 @@ permute:
   use:
     - monetary::*
 
+# This file defines the schema for an employment record source.
+# Permute framework will use this schema to validate the data source, which should be
+# registered from the implementation code. If this schema is not compatible with the registered
+# data source, the framework will raise an error.
+# So this file is a contract between the implementation code and the configuration file.
+#
+# The reason it is done that way is to allow the implementation code to be decoupled from the
+# configuration file. Also, any Permute validators would be able to validate YAML configuration
+# without knowing the implementation specifics.
+
 filters:
   date_from:
     type: Option<Date>

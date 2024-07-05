@@ -1,27 +1,20 @@
 permute:
   version: 0.1
-  type: sink
+  type: feeder # This file describes a feeder, that provides transformed data to a sink.
   use:
     - transform::*
+    - employment_record
 
-# Select sink "csv". This generator is implementation specific, and not defined
-# by the Permute specification itself. It can basically be any custom generator implementation
-# provided to the framework with this name.
-sink: csv
+# Sink type that this feeder can provide data to.
+feeder: csv
 
-# Some field defined by the sink "csv".
+# Configure the CSV sink.
 csv:
-  # This hypothetical generator would have a field "row_sequence" that would be used to
-  # generate a sequence of row numbers.
   row_sequence:
     start: 1
-  # This hypothetical generator would have a field "date_fmt" that would be used to
-  # format a date as a string.
   date_fmt: transform::date_fmt # This is a reference to the transform's "date_fmt".
-
   none_fmt: # Function to format None values.
-    fn: # Anonymous function.
-      output: String
+    fn: # Anonymous function. Exact type inferred from sink's parameter definition.
       define: "" # display empty string for None
 
   # For each employment record...
@@ -35,7 +28,7 @@ csv:
     - e.termination_date
       # Example of using a sink defined fn `salary` of the same name as field in `employment_record`.
       # Without explicit path, won't compile due to ambiguity error.
-    - self::employment_record::salary(e)
+    - employment_record::salary(e)
     - e.job_title
   header: # Optional header row for the CSV file from this hypothetical generator.
     - "Row Number"
@@ -45,6 +38,7 @@ csv:
     - "Salary"
     - "Job Title"
 
+# Define the `salary` function for the `employment_record` entity.
 impl employment_record:
   fn salary:
     output: String

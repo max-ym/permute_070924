@@ -1,0 +1,79 @@
+permute:
+  version: 0.1
+  type: sink # This file describes a sink, to which data can be written.
+
+params:
+  path:
+    type: String
+    explain: Path to the CSV file to write to.
+  date_fmt:
+    type: Fn(Date) -> String
+    explain: Function to format a date as a string.
+  none_fmt:
+    type: Fn(Any) -> String
+    explain: Function to format None values of any type.
+  row_sequence:
+    type: RowSequence
+    explain: Generator for a sequence of row numbers.
+  record_ty:
+    type: Any
+    explain: Type of the records to write to the CSV file.
+  each:
+    type: Iterator<Item = self::record_ty>
+    explain: Iterator over the records to write to the CSV file.
+  as:
+    type: permute::Identifier
+    explain: Alias for the record type to access in the `write` functions.
+  write:
+    type: Vec<WriteFn<self::record_ty>>
+    explain: Functions to write fields of the records to the CSV file.
+    check:
+      - explain: The write functions must be defined for the record type.
+        define: self.len() > 0
+  header:
+    type: Option<Vec<String>>
+    default: None
+    explain: Optional header row for the CSV file.
+    check:
+      - define: self?.len() > 0
+        explain: The header row must be defined if it is not None.
+  delimiter:
+    type: String
+    default: ","
+    explain: Delimiter to use between fields in the CSV file.
+    check: self.len() == 1
+
+# Checks that are performed on the parameters.
+# Those that cannot be defined in the parameter definitions because they
+# operate on multiple parameters.
+check:
+  - explain: The header row must have the same number of fields as the write functions.
+    define: self.header?.len() == self.write.len()
+
+type RowSequence:
+  explain: Generator for a sequence of row numbers.
+  inner:
+    - start:
+      type: Integer
+      default: 1
+      check: self >= 0
+      explain: First row number.
+
+type Writeable:
+  alias: Option<Date> | Date | Option<String> | String
+  explain: Type that can be written to a CSV file.
+
+type WriteFn<T>:
+  explain: Function to write a field of a record to the CSV file.
+  alias:
+    fn:
+      input: T
+      output: Writeable
+
+impl permute::EndlessIterator<Item = Integer> for RowSequence:
+  fn next:
+    output: Integer
+    define: |
+      let next = self.start;
+      self.start += 1;
+      next
