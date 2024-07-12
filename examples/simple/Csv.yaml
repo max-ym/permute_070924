@@ -84,7 +84,7 @@ impl Write for Option<String>:
 trait WriteFn<T>:
   explain: Function to write a field of a record to the CSV file.
 
-impl<T> WriteFn<T> for Fn(T) -> dyn Write:
+impl<T> WriteFn<T> for Fn(T, Csv) -> dyn Write:
 
 # Implement the `permute::EndlessIterator` trait for the `RowSequence` type.
 # This allows the `RowSequence` type to be used as an iterator that never ends.

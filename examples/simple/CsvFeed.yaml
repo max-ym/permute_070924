@@ -3,13 +3,13 @@ permute:
   type: feeder # This file describes a feeder, that provides transformed data to a sink.
   use:
     - transform::*
-    - employment_record
+    - EmploymentRecord
 
 # Sink type that this feeder provides data to.
-feeder: csv
+feeder: Csv
 
 # Configure the CSV sink.
-csv:
+Csv:
   row_sequence:
     start: 1
   date_fmt: transform::date_fmt # This is a reference to the transform's "date_fmt".
@@ -18,15 +18,15 @@ csv:
       define: "" # display empty string for None
 
   # Write the following fields to the CSV file:
-  write:
-    - csv.row_sequence.next()
-    - .employee_id
-    - .hire_date
-    - .termination_date
-      # Example of using a sink defined fn `salary` of the same name as field in `employment_record`.
+  write: # List of closures to write fields of the records to the CSV file.
+    - (_, csv): csv.row_sequence.next()
+    - (e, _): e.employee_id
+    - (e, _): e.hire_date
+    - (e, _): e.termination_date
+      # Example of using a sink defined fn `salary` of the same name as field in `EmploymentRecord`.
       # Without explicit path, won't compile due to ambiguity error.
-    - employment_record::salary
-    - .job_title
+    - (e, _): EmploymentRecord::salary(e)
+    - (e, _): e.job_title
   header: # Optional header row for the CSV file from this hypothetical generator.
     - "Row Number"
     - "Employee ID"
@@ -35,8 +35,8 @@ csv:
     - "Salary"
     - "Job Title"
 
-# Define the `salary` function for the `employment_record` entity.
-impl employment_record:
+# Define the `salary` function for the `EmploymentRecord` entity.
+impl EmploymentRecord:
   fn salary -> String: |
-    # Call the `format` method on the `salary` field of the `employment_record` entity.
+    # Call the `format` method on the `salary` field of the `EmploymentRecord` entity.
     self.salary.format("${:.2}")
