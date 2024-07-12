@@ -27,10 +27,9 @@ filters:
 
 columns:
   employee_id:
-    type:
-      type: String
-      check:
-        - self.regex_is_match("^SID\d{6}$")
+    type: String
+    check:
+      - self.regex_is_match("^SID\d{6}$")
   hire_date:
     type: Date
   termination_date:

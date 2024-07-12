@@ -10,9 +10,9 @@ type Monetary:
     - self >= 0.0
 
 type DollarCent:
-  inner:
-    - dolar: Integer
-    - cent: Integer
+  public:
+    dolar: Integer
+    cent: Integer
   explain: |
     Example of alternative representation of monetary value, with named fields.
   check:
@@ -22,7 +22,5 @@ type DollarCent:
 
 # "Into" implementation for DollarCent to Monetary conversion.
 impl Into<Monetary> for DollarCent:
-  fn into:
-    output: Monetary
-    define: |
-      Monetary(FixedPoint::<Precision = 2>::new(self.dolar * 100 + self.cent))
+  fn into(self) -> Moneraty: |
+    Monetary(FixedPoint::<Precision = 2>::new(self.dolar * 100 + self.cent))

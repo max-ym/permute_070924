@@ -6,25 +6,17 @@ permute:
   type: transform
 
 impl employment_record:
-  fn is_terminated:
-    output: Boolean
-    define: |
-      self.termination_date.is_some()
+  fn is_terminated(self) -> Boolean: |
+    self.termination_date.is_some()
 
-  fn is_active:
-    output: Boolean
-    define: |
-      !self.is_terminated()
+  fn is_active(self) -> Boolean: |
+    !self.is_terminated()
 
-  fn job_title:
-    output: Option<String>
-    define: |
-      self.meta
-        .get("job")?
-        .get("title")
+  fn job_title(self) -> Option<String>: |
+    self.meta
+      .get("job")?
+      .get("title")
 
 impl Date:
-  fn date_fmt:
-    output: String
-    define: |
-      self.format("%Y-%m-%d")
+  fn date_fmt(self) -> String: |
+    self.format("%Y-%m-%d")

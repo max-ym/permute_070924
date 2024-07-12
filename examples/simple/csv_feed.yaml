@@ -5,7 +5,7 @@ permute:
     - transform::*
     - employment_record
 
-# Sink type that this feeder can provide data to.
+# Sink type that this feeder provides data to.
 feeder: csv
 
 # Configure the CSV sink.
@@ -17,19 +17,16 @@ csv:
     fn: # Anonymous function. Exact type inferred from sink's parameter definition.
       define: "" # display empty string for None
 
-  # For each employment record...
-  each: employment_record
-  as: e # Alias the employment record instance as "e".
-  # ...write the following fields to the CSV file.
+  # Write the following fields to the CSV file:
   write:
     - csv.row_sequence.next()
-    - e.employee_id
-    - e.hire_date
-    - e.termination_date
+    - .employee_id
+    - .hire_date
+    - .termination_date
       # Example of using a sink defined fn `salary` of the same name as field in `employment_record`.
       # Without explicit path, won't compile due to ambiguity error.
-    - employment_record::salary(e)
-    - e.job_title
+    - employment_record::salary
+    - .job_title
   header: # Optional header row for the CSV file from this hypothetical generator.
     - "Row Number"
     - "Employee ID"
@@ -40,7 +37,6 @@ csv:
 
 # Define the `salary` function for the `employment_record` entity.
 impl employment_record:
-  fn salary:
-    output: String
+  fn salary -> String: |
     # Call the `format` method on the `salary` field of the `employment_record` entity.
-    define: self.salary.format("${:.2}")
+    self.salary.format("${:.2}")

@@ -26,14 +26,11 @@ params:
     type: RowSequence
     explain: Generator for a sequence of row numbers.
   record_ty:
-    type: Any
+    type: dyn Write # The record types must implement the `Write` trait (defined herein below).
     explain: Type of the records to write to the CSV file.
   each:
     type: Iterator<Item = self::record_ty>
     explain: Iterator over the records to write to the CSV file.
-  as:
-    type: permute::Identifier
-    explain: Alias for the record type to access in the `write` functions.
   write:
     type: Vec<WriteFn<self::record_ty>>
     explain: Functions to write fields of the records to the CSV file.
@@ -60,30 +57,39 @@ check:
   - explain: The header row must have the same number of fields as the write functions.
     define: self.header?.len() == self.write.len()
 
+# Define new type RowSequence.
 type RowSequence:
   explain: Generator for a sequence of row numbers.
-  inner:
-    - start:
+  public:
+    start:
       type: Integer
       default: 1
       check: self >= 0
       explain: First row number.
+  private:
+    iteration:
+      type: Integer
+      explain: Current iteration number.
+      default: 0
 
-type Writeable:
-  alias: Option<Date> | Date | Option<String> | String
+# Define new trait Write.
+trait Write:
   explain: Type that can be written to a CSV file.
 
-type WriteFn<T>:
-  explain: Function to write a field of a record to the CSV file.
-  alias:
-    fn:
-      input: T
-      output: Writeable
+impl Write for Option<Date>:
+impl Write for Date:
+impl Write for String:
+impl Write for Option<String>:
 
+trait WriteFn<T>:
+  explain: Function to write a field of a record to the CSV file.
+
+impl<T> WriteFn<T> for Fn(T) -> dyn Write:
+
+# Implement the `permute::EndlessIterator` trait for the `RowSequence` type.
+# This allows the `RowSequence` type to be used as an iterator that never ends.
 impl permute::EndlessIterator<Item = Integer> for RowSequence:
-  fn next:
-    output: Integer
-    define: |
-      let next = self.start;
-      self.start += 1;
-      next
+  fn next(self) -> Integer: |
+    let next = self.start + self.iteration;
+    self.iteration += 1;
+    next
