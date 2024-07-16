@@ -12,7 +12,7 @@ permute:
   version: 0.1
   type: source
   use:
-    - monetary::*
+    - monetary::Monetary # Example of type `Monetary` import from another in-project file
 
 filters:
   date_from:

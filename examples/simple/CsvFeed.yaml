@@ -1,9 +1,6 @@
 permute:
   version: 0.1
   type: feeder # This file describes a feeder, that provides transformed data to a sink.
-  use:
-    - transform::*
-    - EmploymentRecord
 
 # Sink type that this feeder provides data to.
 feeder: Csv
