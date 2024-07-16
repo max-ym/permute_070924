@@ -20,7 +20,7 @@ params:
     type: Fn(Date) -> String
     explain: Function to format a date as a string.
   none_fmt:
-    type: Fn(Any) -> String
+    type: Fn(dyn Any) -> String
     explain: Function to format None values of any type.
   row_sequence:
     type: RowSequence

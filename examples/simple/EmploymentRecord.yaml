@@ -37,4 +37,4 @@ columns:
   salary:
     type: Moneraty
   meta:
-    type: Option<Map<String, Any>>
+    type: Option<Map<String, dyn Any>>
