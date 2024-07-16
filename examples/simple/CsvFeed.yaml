@@ -34,6 +34,6 @@ Csv:
 
 # Define the `salary` function for the `EmploymentRecord` entity.
 impl EmploymentRecord:
-  fn salary -> String: |
+  fn salary(self) -> String: |
     # Call the `format` method on the `salary` field of the `EmploymentRecord` entity.
     self.salary.format("${:.2}")
