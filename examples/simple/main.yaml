@@ -16,7 +16,7 @@ main:
           date_to: 2019-02-01 # Not inclusive
           exclude_terminations: Yes
     sink: # `sink` is a binding that refers to the configured CSV sink.
-      csv:
+      Csv:
         feeder: CsvFeed
         path: output.csv
         record_ty: EmploymentRecord
