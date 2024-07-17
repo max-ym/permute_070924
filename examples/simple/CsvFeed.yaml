@@ -1,6 +1,8 @@
 permute:
   version: 0.1
   type: feeder # This file describes a feeder, that provides transformed data to a sink.
+  use:
+    - transform::EmploymentRecordExt
 
 # Sink type that this feeder provides data to.
 feeder: Csv
@@ -9,10 +11,11 @@ feeder: Csv
 Csv:
   row_sequence:
     start: 1
-  date_fmt: transform::date_fmt # This is a reference to the transform's "date_fmt".
+  date_fmt: transform::DateExt::date_fmt # This is a reference to the transform's "date_fmt".
   none_fmt: # Function to format None values.
-    fn: # Anonymous function. Exact type inferred from sink's parameter definition.
-      define: "" # display empty string for None
+    (_): |
+      # Closure. Exact return type inferred from sink's parameter definition.
+      "" # Return an empty string for None values.
 
   # Write the following fields to the CSV file:
   write: # List of closures to write fields of the records to the CSV file.

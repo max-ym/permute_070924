@@ -5,7 +5,9 @@ permute:
   version: 0.1
   type: transform
 
-impl EmploymentRecord:
+# Define the `is_terminated`, `is_active`, and `job_title` functions for the `EmploymentRecord` entity.
+# These functions can be put into scope by importing `EmploymentRecordExt`.
+impl EmploymentRecord as EmploymentRecordExt:
   fn is_terminated(self) -> Boolean: |
     self.termination_date.is_some()
 
@@ -17,6 +19,6 @@ impl EmploymentRecord:
       .get("job")?
       .get("title")
 
-impl Date:
+impl Date as DateExt:
   fn date_fmt(self) -> String: |
     self.format("%Y-%m-%d")
