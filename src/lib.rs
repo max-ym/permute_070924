@@ -22,6 +22,8 @@ pub mod project;
 /// calculate values or transform the data.
 pub mod expr;
 
-/// Module that contains the context, which can contain all items, types, and other information
-/// from YAML files that is needed to validate configuration against [crate::domain::Domain].
-pub mod ctx;
+/// Module that contains the contract, which is similar to [crate::domain::Domain] as it contains
+/// all items, types, and other information
+/// from YAML files. This is used to validate the configuration against
+/// actual [crate::domain::Domain].
+pub mod contract;
