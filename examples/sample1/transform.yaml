@@ -7,6 +7,7 @@ permute:
 
 # Define the `is_terminated`, `is_active`, and `job_title` functions for the `EmploymentRecord` entity.
 # These functions can be put into scope by importing `EmploymentRecordExt`.
+# See CsvFeed.yaml `EmploymentRecordExt` for an example of extension definition and usage.
 impl EmploymentRecord as EmploymentRecordExt:
   fn is_terminated(self) -> Boolean: |
     self.termination_date.is_some()

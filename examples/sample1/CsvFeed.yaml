@@ -2,7 +2,9 @@ permute:
   version: 0.1
   type: feeder # This file describes a feeder, that provides transformed data to a sink.
   use:
-    - transform::EmploymentRecordExt
+    # Import the `EmploymentRecordExt` extension and resolve the name conflict with the
+    # same named extension in this file defined below by renaming.
+    - transform::EmploymentRecordExt as EmploymentRecordExt2
 
 # Sink type that this feeder provides data to.
 feeder: Csv
@@ -25,7 +27,7 @@ Csv:
     - (e, _): e.termination_date
       # Example of using a sink defined fn `salary` of the same name as field in `EmploymentRecord`.
       # Without explicit path, won't compile due to ambiguity error.
-    - (e, _): EmploymentRecord::salary(e)
+    - (e, _): e.salary() # also possible to call like `(e as EmploymentRecordExt).salary()`
     - (e, _): e.job_title
   header: # Optional header row for the CSV file from this hypothetical generator.
     - "Row Number"
@@ -36,7 +38,13 @@ Csv:
     - "Job Title"
 
 # Define the `salary` function for the `EmploymentRecord` entity.
-impl EmploymentRecord:
+#
+# The `EmploymentRecordExt` creates named extension for the `EmploymentRecord` entity.
+# Extension allows to add new methods to the entity and if there is any collision with
+# existing methods, the extension method can be either called like
+# `EmploymentRecordExt::salary(er)` or like `(er as EmploymentRecordExt).salary()`, where `er`
+# is an instance of the `EmploymentRecord`.
+impl EmploymentRecord as EmploymentRecordExt:
   fn salary(self) -> String: |
     # Call the `format` method on the `salary` field of the `EmploymentRecord` entity.
     self.salary.format("${:.2}")
