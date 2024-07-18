@@ -1,0 +1,26 @@
+# Example of usage of the custom structure defined in the file `custom_struct.yaml`.
+# Data defined in this file is available in the code via Permute API, and
+# can be used to generate corresponding data structures in the code or take specific
+# actions based on the data defined in the YAML.
+
+permute:
+  version: 0.1
+  type:
+    # Use the custom structure defined in the file `custom_struct.yaml`
+    # "custom" explicitly allows to see that this is not a type included in
+    # or to be expected in Permute specs.
+    custom: custom_struct
+
+name: JohnDoe
+func:
+  (s): s.lowercase()
+
+# Optional fields can be omitted.
+
+map_example:
+  field1: value1
+  field2: value2
+
+map_example2:
+  field1: value1
+  field2: value2

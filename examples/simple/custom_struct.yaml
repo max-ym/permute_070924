@@ -1,0 +1,51 @@
+# Definition of a custom structure format that allows to create own YAML type with custom
+# maps.
+
+permute:
+  version: 0.1
+  type: struct
+
+# Define custom required fields for the custom structure.
+fields:
+  # Define the `name` field of the custom structure.
+  name:
+    # Define the type of the `name` field.
+    type: String
+    check:
+      - self.regex_is_match("^[A-Z][a-z]+$") # Check that the `name` field is a valid name.
+    explain: Some name field that is required to be defined in the YAML.
+  func:
+    type: Fn(String) -> String
+    explain: Example of a function field that takes a string and returns a string.
+  optional_field:
+    type: Option<String>
+    default: None
+    explain: Example of an optional field that can be defined in the YAML.
+  optional_field2:
+    type: String
+    default: 'Default'
+    explain: Example of an optional field that can be defined in the YAML.
+  map_example:
+    type:
+      map:
+        explain: Example of a map field that can be defined in the YAML.
+        field1:
+          type: String
+          explain: Example of a field in a map.
+        field2:
+          type: String
+          explain: Example of a field in a map.
+    explain: Example of a map field that can be defined in the YAML.
+  map_example2:
+    type:
+      map: MyMap
+    explain: Example of a map field that can be defined in the YAML separately.
+
+MyMap:
+  explain: Example of a custom map type with definition split to a separate item in the file.
+  field1:
+    type: String
+    explain: Example of a field in a map.
+  field2:
+    type: String
+    explain: Example of a field in a map.
