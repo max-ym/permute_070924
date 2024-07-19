@@ -16,7 +16,7 @@ impl EmploymentRecord as EmploymentRecordExt:
     !self.is_terminated()
 
   fn job_title(self) -> Option<String>: |
-    self.meta
+    self.meta?
       .get("job")?
       .get("title")
 
