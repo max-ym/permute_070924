@@ -1,0 +1,525 @@
+permute:
+  version: 0.1
+  type: transform
+
+extern type Integer:
+  explain: |
+    A signed integer type. The size of the integer is 32 bits.
+
+extern type String:
+  explain: |
+    A UTF-8 encoded string.
+
+extern type Boolean:
+  explain: |
+    A boolean value. It can be either `true` or `false`.
+
+extern type Date:
+  explain: |
+    A date type.
+
+extern type FixedPoint<const Precision = Integer>:
+  explain: |
+    A fixed-point number with the given precision.
+
+trait Eq<T>:
+  fn eq(self, other = T) -> Boolean:
+    explain: Compare two values for equality.
+
+  fn ne(self, other = T) -> Boolean:
+    explain: Compare two values for inequality.
+    define: |
+      !self.eq(other)
+
+impl Eq<Integer> for Integer:
+  extern fn eq(self, other = Integer) -> Boolean:
+
+impl Eq<String> for String:
+  extern fn eq(self, other = String) -> Boolean:
+
+impl Eq<Boolean> for Boolean:
+  extern fn eq(self, other = Boolean) -> Boolean:
+
+impl Eq<Date> for Date:
+  extern fn eq(self, other = Date) -> Boolean:
+
+impl Eq<FixedPoint> for FixedPoint:
+  extern fn eq(self, other = FixedPoint) -> Boolean:
+
+trait Add<T>:
+  type Output:
+    explain: The type of the result of the addition.
+
+  fn add(self, other = T) -> Self::Output:
+    explain: Add two values.
+
+trait Sub<T>:
+  type Output:
+    explain: The type of the result of the subtraction.
+
+  fn sub(self, other = T) -> Self::Output:
+    explain: Subtract two values.
+
+trait Mul<T>:
+  type Output:
+    explain: The type of the result of the multiplication.
+
+  fn mul(self, other = T) -> Self::Output:
+    explain: Multiply two values.
+
+trait Div<T>:
+  type Output:
+    explain: The type of the result of the division.
+
+  fn div(self, other = T) -> Self::Output:
+    explain: Divide two values.
+
+trait Rem<T>:
+  type Output:
+    explain: The type of the result of the remainder operation.
+
+  fn rem(self, other = T) -> Self::Output:
+    explain: Get the remainder of the division of two values.
+
+trait Neg:
+  type Output:
+    explain: The type of the result of the negation.
+
+  fn neg(self) -> Self::Output:
+    explain: Get the negation of the value.
+
+trait Not:
+  type Output:
+    explain: The type of the result of the logical negation.
+
+  fn not(self) -> Self::Output:
+    explain: Get the logical negation of the value.
+
+trait And<T>:
+  type Output:
+    explain: The type of the result of the logical AND operation.
+
+  fn and(self, other = T) -> Self::Output:
+    explain: Perform a logical AND operation.
+
+trait Or<T>:
+  type Output:
+    explain: The type of the result of the logical OR operation.
+
+  fn or(self, other = T) -> Self::Output:
+    explain: Perform a logical OR operation.
+
+trait Shl<T>:
+  type Output:
+    explain: The type of the result of the left shift operation.
+
+  fn shl(self, other = T) -> Self::Output:
+    explain: Perform a left shift operation.
+
+trait Shr<T>:
+  type Output:
+    explain: The type of the result of the right shift operation.
+
+  fn shr(self, other = T) -> Self::Output:
+    explain: Perform a right shift operation.
+
+enum Ordering:
+  explain: |
+    The result of a comparison between two values.
+  define:
+    - Less
+    - Equal
+    - Greater
+
+trait Ord<T>:
+  fn cmp(self, other = T) -> Ordering:
+    explain: Compare two values.
+
+impl Ord<Integer> for Integer:
+  extern fn cmp(self, other = Integer) -> Ordering:
+
+impl Add<Integer> for Integer:
+  type Output: Integer
+  extern fn add(self, other = Integer) -> Integer:
+
+impl Sub<Integer> for Integer:
+  type Output: Integer
+  extern fn sub(self, other = Integer) -> Integer:
+
+impl Mul<Integer> for Integer:
+  type Output: Integer
+  extern fn mul(self, other = Integer) -> Integer:
+
+impl Div<Integer> for Integer:
+  type Output: Integer
+  extern fn div(self, other = Integer) -> Integer:
+
+impl Rem<Integer> for Integer:
+  type Output: Integer
+  extern fn rem(self, other = Integer) -> Integer:
+
+impl Neg for Integer:
+  type Output: Integer
+  extern fn neg(self) -> Integer:
+
+impl Not for Boolean:
+  type Output: Boolean
+  extern fn not(self) -> Boolean:
+
+impl And<Boolean> for Boolean:
+  type Output: Boolean
+  extern fn and(self, other = Boolean) -> Boolean:
+
+impl Or<Boolean> for Boolean:
+  type Output: Boolean
+  extern fn or(self, other = Boolean) -> Boolean:
+
+impl<N> Add<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+  type Output: FixedPoint<Precision = N>
+  extern fn add(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+
+impl<N> Sub<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+  type Output: FixedPoint<Precision = N>
+  extern fn sub(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+
+impl<N> Mul<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+  type Output: FixedPoint<Precision = N>
+  extern fn mul(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+
+impl<N> Div<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+  type Output: FixedPoint<Precision = N>
+  extern fn div(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+
+impl<N> Neg for FixedPoint<Precision = N>:
+  type Output: FixedPoint<Precision = N>
+  extern fn neg(self) -> FixedPoint<Precision = N>:
+
+impl<N> Ord<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+  extern fn cmp(self, other = FixedPoint<Precision = N>) -> Ordering:
+
+impl Ord<Date> for Date:
+  extern fn cmp(self, other = Date) -> Ordering:
+
+enum ControlFlow<R, O>:
+  explain: |
+    A control flow type that can be used to control the flow of execution.
+  define:
+    - Continue(O)
+    - Break(R)
+
+trait Try:
+  explain: |
+    The `Try` trait is used to handle operations that may fail.
+    It's branch method is called on invocation by the operator `?` at the end of expression.
+    Example: `operation()?`.
+
+  type Output:
+    explain: |
+      The type of the value that the operation may return when flow continues.
+  type Residual:
+    explain: |
+      The type of the value that the operation may return in case of a break.
+
+  fn branch(self) -> ControlFlow<Self::Residual, Self::Output>:
+    explain: |
+      Branch the control flow. Continue if the operation is successful, break otherwise.
+
+trait Into<T>:
+  fn into(self) -> T:
+    explain: Convert the value into the target type.
+
+trait From<T>:
+  fn from(value = T) -> Self:
+    explain: Convert the value from the source type.
+
+impl<T, U> Into<U> for T:
+  where:
+    U: From<T>
+  explain: Blanket implementation for conversion between types.
+  define: U::from(self)
+
+trait TryInto<T>:
+  fn try_into(self) -> Option<T>:
+    explain: Convert the value into the target type. None if the conversion fails.
+
+trait TryFrom<T>:
+  fn try_from(value = T) -> Option<Self>:
+    explain: Convert the value from the source type. None if the conversion fails.
+
+impl<T, U> TryInto<U> for T:
+  where:
+    U: TryFrom<T>
+  explain: Blanket implementation for conversion between types.
+  define: U::try_from(self)
+
+trait ConstImplicitInto<T>:
+  fn const_implicit_into(self) -> T:
+    explain: |
+      Convert the value into the target type on compile time, implicitly.
+      This is a function that is called implicitly by the compiler.
+      Const in the name means that the context of evaluation is constant,
+      hence the function is called at compile time.
+
+impl ConstImplicitInto<Date> for String:
+  extern fn const_implicit_into(self) -> Date:
+    explain: Parse the string as a date.
+
+enum Option<T>:
+  - Some(T)
+  - None
+
+impl<T> Option<T>:
+  fn is_some(self) -> Boolean: |
+    match self {
+      Some(_) => true,
+      None => false,
+    }
+
+  fn is_none(self) -> Boolean: |
+    !self.is_some()
+
+  fn expect(self, message = String) -> T:
+    explain: |
+      Unwrap the option, panic with the given message if the option is `None`.
+    define: |
+      match self {
+        Some(value) => value,
+        None => panic(message),
+      }
+
+impl<T> Try<Output = T, Residual = ()> for Option<T>:
+  fn branch(self) -> ControlFlow<String, T>: |
+    use ControlFlow::*;
+    match self {
+      Some(value) => Continue(value),
+      None => Break(()),
+    }
+
+# This trait has special meaning for the compiler.
+trait Transparent:
+  explain: |
+    The `Transparent` trait is used to indicate that the type is transparent.
+    This means that the type is as a wrapper around another type and in the code
+    in immutable context acts as if it was the wrapped type.
+
+  type Inner:
+    explain: |
+      The type that is wrapped by the transparent type.
+
+  fn inner(self) -> Self::Inner:
+    explain: |
+      Get the inner value of the transparent type.
+
+trait TransparentMutable:
+  where:
+    Self: Transparent
+  explain: |
+    The `TransparentMutable` trait is used to indicate that the type is transparent and mutable.
+    This means that the type is as a wrapper around another type and in the code
+    in mutable context acts as if it was the wrapped type.
+
+  fn inner_mut(mut self) -> mut Self::Inner:
+    explain: |
+      Get the mutable inner value of the transparent type.
+
+enum Never:
+  explain: |
+    The `Never` type is used to indicate that a function never returns.
+    This enumerator is impossible to construct since it has no variants.
+    Compiler's control flow analysis accounts for this (or the same other types)
+    when checking for reachability of code.
+
+extern fn panic(message = String) -> Never:
+  explain: |
+    Panic with the given message.
+
+impl<T> Eq<Option<T>> for Option<T>:
+  where:
+    T: Eq<T>
+
+  fn eq(self, other = Option<T>) -> Boolean: |
+    match (self, other) {
+      (Some(a), Some(b)) => a.eq(b),
+      (None, None) => true,
+      _ => false,
+    }
+
+type TypeId:
+  inner: Integer
+  explain: |
+    Identifier of the type in complete domain. It is not guaranteed to be the same across 
+    different runs.
+
+impl Transparent for TypeId:
+  type Inner: Integer
+  fn inner(self) -> Integer: |
+    self.inner
+
+# This trait is special as it is implicitly implemented for all types.
+trait Any:
+  fn type_id(self) -> TypeId:
+    explain: Get the type identifier of the value.
+
+  fn is<T>(self) -> Boolean:
+    explain: Check if the value is of the given type.
+    define: self.type_id() == T::type_id()
+
+  fn downcast<T>(self) -> Option<T>:
+    explain: Attempt to downcast the value to the given type.
+
+trait Iterator:
+  type Item:
+    explain: |
+      The type of the items produced by the iterator.
+  explain: |
+    An iterator over a collection of values of type `T`.
+
+  fn next(mut self) -> Option<Self::Item>:
+    explain: Get the next value from the iterator. None if the iterator is exhausted.
+
+trait EndlessIterator:
+  where:
+    Self: Iterator
+  explain: |
+    An iterator that never ends.
+
+  fn next(mut self) -> Self::Item:
+    explain: Get the next value from the iterator.
+
+trait DoubleEndedIterator:
+  where:
+    Self: Iterator
+  explain: |
+    An iterator that can be iterated from both ends.
+
+  fn next_back(mut self) -> Option<Self::Item>:
+    explain: Get the next value from the back of the iterator. None if the iterator is exhausted.
+
+impl String:
+  extern fn len(self) -> Integer:
+    explain: Get the length of the string.
+
+  fn is_empty(self) -> Boolean:
+    explain: Check if the string is empty.
+    define: self.len() == 0
+
+  extern fn split_off(mut self, at = Integer) -> String:
+    explain: Split the string at the given index and return the tail.
+    check: 0 <= at && at <= self.len()
+
+  extern fn insert(mut self, index = Integer, other = String):
+    explain: Insert the other string at the given index.
+    check: 0 <= index && index <= self.len()
+
+  extern fn starts_with(self, prefix = String) -> Boolean:
+    explain: Check if the string starts with the given prefix.
+
+  extern fn ends_with(self, suffix = String) -> Boolean:
+    explain: Check if the string ends with the given suffix.
+
+  extern fn to_uppercase(self) -> String:
+    explain: Convert the string to uppercase.
+
+  extern fn to_lowercase(self) -> String:
+    explain: Convert the string to lowercase.
+
+  extern fn trim(self) -> String:
+    explain: Remove leading and trailing whitespaces.
+
+  extern fn trim_start(self) -> String:
+    explain: Remove leading whitespaces.
+
+  extern fn trim_end(self) -> String:
+    explain: Remove trailing whitespaces.
+
+  extern fn replace(mut self, from = String, to = String):
+    explain: Replace all occurrences of the `from` string with the `to` string.
+
+  extern fn strip_prefix(self, prefix = String) -> Option<String>:
+    explain: Remove the prefix if it exists.
+
+  extern fn strip_suffix(self, suffix = String) -> Option<String>:
+    explain: Remove the suffix if it exists.
+
+  extern fn repeat(self, count = Integer) -> String:
+    explain: Repeat the string `count` times.
+    check: count >= 0
+
+  extern fn lines(self) -> Lines:
+    explain: Split the string into lines.
+
+  extern fn contains(self, pattern = String) -> Boolean:
+    explain: Check if the string contains the given pattern.
+
+  extern fn find(self, pattern = String) -> Option<Integer>:
+    explain: Find the first occurrence of the pattern in the string.
+
+  extern fn rfind(self, pattern = String) -> Option<Integer>:
+    explain: Find the last occurrence of the pattern in the string.
+
+  extern fn is_ascii(self) -> Boolean:
+    explain: Check if the string is ASCII.
+
+  extern fn is_ascii_lowercase(self) -> Boolean:
+    explain: Check if the string is ASCII lowercase.
+
+  extern fn is_ascii_uppercase(self) -> Boolean:
+    explain: Check if the string is ASCII uppercase.
+
+  extern fn is_ascii_alphabetic(self) -> Boolean:
+    explain: Check if the string is ASCII alphabetic.
+
+  extern fn is_ascii_alphanumeric(self) -> Boolean:
+    explain: Check if the string is ASCII alphanumeric.
+
+  extern fn split(self, pattern = String) -> Split:
+    explain: Split the string by the given pattern.
+
+  extern fn is_regex_match(self, pattern = Regex) -> Boolean:
+    explain: Check if the whole string matches the given regular expression pattern.
+
+extern type Lines:
+  explain: Iterator over the lines of a string.
+
+impl Iterator for Lines:
+  type Item: String
+  extern fn next(mut self) -> Option<String>:
+    explain: Get the next line from the iterator. None if the iterator is exhausted.
+
+extern type Split:
+  explain: Iterator over the parts of a string.
+
+impl Iterator for Split:
+  type Item: String
+  extern fn next(mut self) -> Option<String>:
+    explain: Get the next part from the iterator. None if the iterator is exhausted.
+
+type Regex:
+  inner: String
+  explain: |
+    A regular expression pattern.
+
+impl TryFrom<String> for Regex:
+  extern fn try_from(String) -> Option<Regex>:
+    explain: Parse the string as a regular expression pattern. None if the pattern is invalid.
+
+impl ConstImplicitInto<Regex> for String:
+  fn const_implicit_into(self) -> Regex: |
+    self.try_into().expect("Invalid regular expression pattern")
+
+type DateFmt:
+  inner: String
+  explain: |
+    A date format pattern.
+
+impl TryFrom<String> for DateFmt:
+  extern fn try_from(String) -> Option<DateFmt>:
+    explain: Parse the string as a date format pattern. None if the pattern is invalid.
+
+impl ConstImplicitInto<DateFmt> for String:
+  fn const_implicit_into(self) -> DateFmt: |
+    self.try_into().expect("Invalid date format pattern")
+
+impl Date:
+  extern fn format(self, pattern = DateFmt) -> String:
+    explain: Format the date using the given pattern.
