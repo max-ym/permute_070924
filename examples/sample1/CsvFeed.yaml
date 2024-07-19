@@ -28,7 +28,7 @@ Csv:
       # Example of using a sink defined fn `salary` of the same name as field in `EmploymentRecord`.
       # Without explicit path, won't compile due to ambiguity error.
     - (e, _): e.salary() # also possible to call like `(e as EmploymentRecordExt).salary()`
-    - (e, _): e.job_title
+    - (e, _): e.job_title()
   header: # Optional header row for the CSV file from this hypothetical generator.
     - "Row Number"
     - "Employee ID"
