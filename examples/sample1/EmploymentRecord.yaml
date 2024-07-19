@@ -35,6 +35,6 @@ columns:
   termination_date:
     type: Option<Date>
   salary:
-    type: Moneraty
+    type: Monetary
   meta:
     type: Option<Map<String, dyn Any>>
