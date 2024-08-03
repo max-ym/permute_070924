@@ -31,20 +31,41 @@ trait Eq<T>:
     define: |
       !self.eq(other)
 
-impl Eq<Integer> for Integer:
-  extern fn eq(self, other = Integer) -> Boolean:
+trait ConstEq<T>:
+  explain: |
+    The `ConstEq` trait is used to compare two values for equality on compile time.
+    It is a specialization of the `Eq` trait, thus any ConstEq trait also provides 
+    the Eq trait implementation.
+  specialization:
+    impl Eq<T>:
+      fn eq(self, other = T) -> Boolean: |
+        (self as Eq).eq(other)
 
-impl Eq<String> for String:
-  extern fn eq(self, other = String) -> Boolean:
+      fn ne(self, other = T) -> Boolean: |
+        (self as Eq).ne(other)
+  
+  const fn eq(self, other = T) -> Boolean:
+    explain: Compare two values for equality on compile time.
+  
+  const fn ne(self, other = T) -> Boolean:
+    explain: Compare two values for inequality on compile time.
+    define: |
+      !self.eq(other)
 
-impl Eq<Boolean> for Boolean:
-  extern fn eq(self, other = Boolean) -> Boolean:
+impl ConstEq<Integer> for Integer:
+  extern const fn eq(self, other = Integer) -> Boolean:
 
-impl Eq<Date> for Date:
-  extern fn eq(self, other = Date) -> Boolean:
+impl ConstEq<String> for String:
+  extern const fn eq(self, other = String) -> Boolean:
 
-impl Eq<FixedPoint> for FixedPoint:
-  extern fn eq(self, other = FixedPoint) -> Boolean:
+impl ConstEq<Boolean> for Boolean:
+  extern const fn eq(self, other = Boolean) -> Boolean:
+
+impl ConstEq<Date> for Date:
+  extern const fn eq(self, other = Date) -> Boolean:
+
+impl ConstEq<FixedPoint> for FixedPoint:
+  extern const fn eq(self, other = FixedPoint) -> Boolean:
 
 trait Add<T>:
   type Output:
@@ -52,6 +73,19 @@ trait Add<T>:
 
   fn add(self, other = T) -> Self::Output:
     explain: Add two values.
+  
+trait ConstAdd<T>:
+  specialization:
+    impl Add<T>:
+      type Output: super::Output
+      fn add(self, other = T) -> Self::Output: |
+        (self as ConstAdd<T>).add(other)
+
+  type Output:
+    explain: The type of the result of the addition.
+
+  const fn add(self, other = T) -> Self::Output:
+    explain: Add two values on compile time.
 
 trait Sub<T>:
   type Output:
@@ -60,12 +94,38 @@ trait Sub<T>:
   fn sub(self, other = T) -> Self::Output:
     explain: Subtract two values.
 
+trait ConstSub<T>:
+  specialization:
+    impl Sub<T>:
+      type Output: super::Output
+      fn sub(self, other = T) -> Self::Output: |
+        (self as ConstSub<T>).sub(other)
+
+  type Output:
+    explain: The type of the result of the subtraction.
+
+  const fn sub(self, other = T) -> Self::Output:
+    explain: Subtract two values on compile time.
+
 trait Mul<T>:
   type Output:
     explain: The type of the result of the multiplication.
 
   fn mul(self, other = T) -> Self::Output:
     explain: Multiply two values.
+
+trait ConstMul<T>:
+  specialization:
+    impl Mul<T>:
+      type Output: super::Output
+      fn mul(self, other = T) -> Self::Output: |
+        (self as ConstMul<T>).mul(other)
+
+  type Output:
+    explain: The type of the result of the multiplication.
+
+  const fn mul(self, other = T) -> Self::Output:
+    explain: Multiply two values on compile time.
 
 trait Div<T>:
   type Output:
@@ -74,12 +134,38 @@ trait Div<T>:
   fn div(self, other = T) -> Self::Output:
     explain: Divide two values.
 
+trait ConstDiv<T>:
+  specialization:
+    impl Div<T>:
+      type Output: super::Output
+      fn div(self, other = T) -> Self::Output: |
+        (self as ConstDiv<T>).div(other)
+
+  type Output:
+    explain: The type of the result of the division.
+
+  const fn div(self, other = T) -> Self::Output:
+    explain: Divide two values on compile time.
+
 trait Rem<T>:
   type Output:
     explain: The type of the result of the remainder operation.
 
   fn rem(self, other = T) -> Self::Output:
     explain: Get the remainder of the division of two values.
+
+trait ConstRem<T>:
+  specialization:
+    impl Rem<T>:
+      type Output: super::Output
+      fn rem(self, other = T) -> Self::Output: |
+        (self as ConstRem<T>).rem(other)
+
+  type Output:
+    explain: The type of the result of the remainder operation.
+
+  const fn rem(self, other = T) -> Self::Output:
+    explain: Get the remainder of the division of two values on compile time.
 
 trait Neg:
   type Output:
@@ -88,12 +174,38 @@ trait Neg:
   fn neg(self) -> Self::Output:
     explain: Get the negation of the value.
 
+trait ConstNeg:
+  specialization:
+    impl Neg:
+      type Output: super::Output
+      fn neg(self) -> Self::Output: |
+        (self as ConstNeg).neg()
+
+  type Output:
+    explain: The type of the result of the negation.
+
+  const fn neg(self) -> Self::Output:
+    explain: Get the negation of the value on compile time.
+
 trait Not:
   type Output:
     explain: The type of the result of the logical negation.
 
   fn not(self) -> Self::Output:
     explain: Get the logical negation of the value.
+
+trait ConstNot:
+  specialization:
+    impl Not:
+      type Output: super::Output
+      fn not(self) -> Self::Output: |
+        (self as ConstNot).not()
+
+  type Output:
+    explain: The type of the result of the logical negation.
+
+  const fn not(self) -> Self::Output:
+    explain: Get the logical negation of the value on compile time.
 
 trait And<T>:
   type Output:
@@ -102,12 +214,38 @@ trait And<T>:
   fn and(self, other = T) -> Self::Output:
     explain: Perform a logical AND operation.
 
+trait ConstAnd<T>:
+  specialization:
+    impl And<T>:
+      type Output: super::Output
+      fn and(self, other = T) -> Self::Output: |
+        (self as ConstAnd<T>).and(other)
+
+  type Output:
+    explain: The type of the result of the logical AND operation.
+
+  const fn and(self, other = T) -> Self::Output:
+    explain: Perform a logical AND operation on compile time.
+
 trait Or<T>:
   type Output:
     explain: The type of the result of the logical OR operation.
 
   fn or(self, other = T) -> Self::Output:
     explain: Perform a logical OR operation.
+
+trait ConstOr<T>:
+  specialization:
+    impl Or<T>:
+      type Output: super::Output
+      fn or(self, other = T) -> Self::Output: |
+        (self as ConstOr<T>).or(other)
+
+  type Output:
+    explain: The type of the result of the logical OR operation.
+
+  const fn or(self, other = T) -> Self::Output:
+    explain: Perform a logical OR operation on compile time.
 
 trait Shl<T>:
   type Output:
@@ -116,12 +254,38 @@ trait Shl<T>:
   fn shl(self, other = T) -> Self::Output:
     explain: Perform a left shift operation.
 
+trait ConstShl<T>:
+  specialization:
+    impl Shl<T>:
+      type Output: super::Output
+      fn shl(self, other = T) -> Self::Output: |
+        (self as ConstShl<T>).shl(other)
+
+  type Output:
+    explain: The type of the result of the left shift operation.
+
+  const fn shl(self, other = T) -> Self::Output:
+    explain: Perform a left shift operation on compile time.
+
 trait Shr<T>:
   type Output:
     explain: The type of the result of the right shift operation.
 
   fn shr(self, other = T) -> Self::Output:
     explain: Perform a right shift operation.
+
+trait ConstShr<T>:
+  specialization:
+    impl Shr<T>:
+      type Output: super::Output
+      fn shr(self, other = T) -> Self::Output: |
+        (self as ConstShr<T>).shr(other)
+
+  type Output:
+    explain: The type of the result of the right shift operation.
+
+  const fn shr(self, other = T) -> Self::Output:
+    explain: Perform a right shift operation on compile time.
 
 enum Ordering:
   explain: |
@@ -135,70 +299,79 @@ trait Ord<T>:
   fn cmp(self, other = T) -> Ordering:
     explain: Compare two values.
 
-impl Ord<Integer> for Integer:
-  extern fn cmp(self, other = Integer) -> Ordering:
+trait ConstOrd<T>:
+  specialization:
+    impl Ord<T>:
+      fn cmp(self, other = T) -> Ordering: |
+        (self as ConstOrd<T>).cmp(other)
 
-impl Add<Integer> for Integer:
+  fn cmp(self, other = T) -> Ordering:
+    explain: Compare two values on compile time.
+
+impl ConstOrd<Integer> for Integer:
+  extern const fn cmp(self, other = Integer) -> Ordering:
+
+impl ConstAdd<Integer> for Integer:
   type Output: Integer
-  extern fn add(self, other = Integer) -> Integer:
+  extern const fn add(self, other = Integer) -> Integer:
 
-impl Sub<Integer> for Integer:
+impl ConstSub<Integer> for Integer:
   type Output: Integer
-  extern fn sub(self, other = Integer) -> Integer:
+  extern const fn sub(self, other = Integer) -> Integer:
 
-impl Mul<Integer> for Integer:
+impl ConstMul<Integer> for Integer:
   type Output: Integer
-  extern fn mul(self, other = Integer) -> Integer:
+  extern const fn mul(self, other = Integer) -> Integer:
 
-impl Div<Integer> for Integer:
+impl ConstDiv<Integer> for Integer:
   type Output: Integer
-  extern fn div(self, other = Integer) -> Integer:
+  extern const fn div(self, other = Integer) -> Integer:
 
-impl Rem<Integer> for Integer:
+impl ConstRem<Integer> for Integer:
   type Output: Integer
-  extern fn rem(self, other = Integer) -> Integer:
+  extern const fn rem(self, other = Integer) -> Integer:
 
-impl Neg for Integer:
+impl ConstNeg for Integer:
   type Output: Integer
-  extern fn neg(self) -> Integer:
+  extern const fn neg(self) -> Integer:
 
-impl Not for Boolean:
+impl ConstNot for Boolean:
   type Output: Boolean
-  extern fn not(self) -> Boolean:
+  extern const fn not(self) -> Boolean:
 
-impl And<Boolean> for Boolean:
+impl ConstAnd<Boolean> for Boolean:
   type Output: Boolean
-  extern fn and(self, other = Boolean) -> Boolean:
+  extern const fn and(self, other = Boolean) -> Boolean:
 
-impl Or<Boolean> for Boolean:
+impl ConstOr<Boolean> for Boolean:
   type Output: Boolean
-  extern fn or(self, other = Boolean) -> Boolean:
+  extern const fn or(self, other = Boolean) -> Boolean:
 
-impl<N> Add<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+impl<N> ConstAdd<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
   type Output: FixedPoint<Precision = N>
-  extern fn add(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+  extern const fn add(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
 
-impl<N> Sub<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+impl<N> ConstSub<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
   type Output: FixedPoint<Precision = N>
-  extern fn sub(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+  extern const fn sub(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
 
-impl<N> Mul<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+impl<N> ConstMul<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
   type Output: FixedPoint<Precision = N>
-  extern fn mul(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+  extern const fn mul(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
 
-impl<N> Div<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+impl<N> ConstDiv<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
   type Output: FixedPoint<Precision = N>
-  extern fn div(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
+  extern const fn div(self, other = FixedPoint<Precision = N>) -> FixedPoint<Precision = N>:
 
-impl<N> Neg for FixedPoint<Precision = N>:
+impl<N> ConstNeg for FixedPoint<Precision = N>:
   type Output: FixedPoint<Precision = N>
-  extern fn neg(self) -> FixedPoint<Precision = N>:
+  extern const fn neg(self) -> FixedPoint<Precision = N>:
 
-impl<N> Ord<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
-  extern fn cmp(self, other = FixedPoint<Precision = N>) -> Ordering:
+impl<N> ConstOrd<FixedPoint<Precision = N>> for FixedPoint<Precision = N>:
+  extern const fn cmp(self, other = FixedPoint<Precision = N>) -> Ordering:
 
-impl Ord<Date> for Date:
-  extern fn cmp(self, other = Date) -> Ordering:
+impl ConstOrd<Date> for Date:
+  extern const fn cmp(self, other = Date) -> Ordering:
 
 enum ControlFlow<R, O>:
   explain: |
@@ -220,7 +393,7 @@ trait Try:
     explain: |
       The type of the value that the operation may return in case of a break.
 
-  fn branch(self) -> ControlFlow<Self::Residual, Self::Output>:
+  const fn branch(self) -> ControlFlow<Self::Residual, Self::Output>:
     explain: |
       Branch the control flow. Continue if the operation is successful, break otherwise.
 
@@ -232,11 +405,39 @@ trait From<T>:
   fn from(value = T) -> Self:
     explain: Convert the value from the source type.
 
+trait ConstInto<T>:
+  specialization:
+    impl Into<T>:
+      fn into(self) -> T: |
+        (self as ConstInto<T>).into()
+
+  const fn into(self) -> T:
+    explain: Convert the value into the target type on compile time.
+
+trait ConstFrom<T>:
+  specialization:
+    impl From<T>:
+      fn from(value = T) -> Self: |
+        (self as ConstFrom<T>).from(value)
+
+  const fn from(value = T) -> Self:
+    explain: Convert the value from the source type on compile time.
+
 impl<T, U> Into<U> for T:
   where:
-    U: From<T>
+    U: From<T> + ~ConstFrom<T>
   explain: Blanket implementation for conversion between types.
-  define: U::from(self)
+  
+  fn into(self) -> U: |
+    U::from(self)
+
+impl<T, U> ConstInto<T> for U:
+  where:
+    U: ConstFrom<T>
+  explain: Blanket implementation for conversion between types on compile time.
+
+  const fn const_into(self) -> T: |
+    U::const_from(self)
 
 trait TryInto<T>:
   fn try_into(self) -> Option<T>:
@@ -246,14 +447,41 @@ trait TryFrom<T>:
   fn try_from(value = T) -> Option<Self>:
     explain: Convert the value from the source type. None if the conversion fails.
 
+trait ConstTryInto<T>:
+  specialization:
+    impl TryInto<T>:
+      fn try_into(self) -> Option<T>: |
+        (self as ConstTryInto<T>).try_into()
+
+  const fn try_into(self) -> Option<T>:
+    explain: Convert the value into the target type on compile time. None if the conversion fails.
+
+trait ConstTryFrom<T>:
+  specialization:
+    impl TryFrom<T>:
+      fn try_from(value = T) -> Option<Self>: |
+        (self as ConstTryFrom<T>).try_from(value)
+
+  const fn try_from(value = T) -> Option<Self>:
+    explain: Convert the value from the source type on compile time. None if the conversion fails.
+
 impl<T, U> TryInto<U> for T:
   where:
-    U: TryFrom<T>
+    U: TryFrom<T> + ~ConstTryFrom<T>
   explain: Blanket implementation for conversion between types.
-  define: U::try_from(self)
+  
+  fn try_into(self) -> Option<U>: |
+    U::try_from(self)
+
+impl<T, U> ConstTryInto<T> for U:
+  where:
+    U: ConstTryFrom<T>
+
+  const fn try_into(self) -> Option<T>: |
+    U::try_from(self)
 
 trait ConstImplicitInto<T>:
-  fn const_implicit_into(self) -> T:
+  const fn const_implicit_into(self) -> T:
     explain: |
       Convert the value into the target type on compile time, implicitly.
       This is a function that is called implicitly by the compiler.
@@ -261,7 +489,7 @@ trait ConstImplicitInto<T>:
       hence the function is called at compile time.
 
 impl ConstImplicitInto<Date> for String:
-  extern fn const_implicit_into(self) -> Date:
+  extern const fn const_implicit_into(self) -> Date:
     explain: Parse the string as a date.
 
 enum Option<T>:
@@ -269,16 +497,16 @@ enum Option<T>:
   - None
 
 impl<T> Option<T>:
-  fn is_some(self) -> Boolean: |
+  const fn is_some(self) -> Boolean: |
     match self {
       Some(_) => true,
       None => false,
     }
 
-  fn is_none(self) -> Boolean: |
+  const fn is_none(self) -> Boolean: |
     !self.is_some()
 
-  fn expect(self, message = String) -> T:
+  const fn expect(self, message = String) -> T:
     explain: |
       Unwrap the option, panic with the given message if the option is `None`.
     define: |
@@ -288,7 +516,7 @@ impl<T> Option<T>:
       }
 
 impl<T> Try<Output = T, Residual = ()> for Option<T>:
-  fn branch(self) -> ControlFlow<String, T>: |
+  const fn branch(self) -> ControlFlow<String, T>: |
     use ControlFlow::*;
     match self {
       Some(value) => Continue(value),
@@ -306,7 +534,7 @@ trait Transparent:
     explain: |
       The type that is wrapped by the transparent type.
 
-  fn inner(self) -> Self::Inner:
+  const fn inner(self) -> Self::Inner:
     explain: |
       Get the inner value of the transparent type.
 
@@ -318,7 +546,7 @@ trait TransparentMutable:
     This means that the type is as a wrapper around another type and in the code
     in mutable context acts as if it was the wrapped type.
 
-  fn inner_mut(mut self) -> mut Self::Inner:
+  const fn inner_mut(mut self) -> mut Self::Inner:
     explain: |
       Get the mutable inner value of the transparent type.
 
@@ -329,15 +557,25 @@ enum Never:
     Compiler's control flow analysis accounts for this (or the same other types)
     when checking for reachability of code.
 
-extern fn panic(message = String) -> Never:
+extern const fn panic(message = String) -> Never:
   explain: |
     Panic with the given message.
 
 impl<T> Eq<Option<T>> for Option<T>:
   where:
-    T: Eq<T>
+    T: Eq<T> + ~ConstEq<T>
 
   fn eq(self, other = Option<T>) -> Boolean: |
+    match (self, other) {
+      (Some(a), Some(b)) => a.eq(b),
+      (None, None) => true,
+      _ => false,
+    }
+
+impl<T> ConstEq<Option<T>> for Option<T>:
+  where:
+    T: ConstEq<T>
+  const fn eq(self, other = Option<T>) -> Boolean: |
     match (self, other) {
       (Some(a), Some(b)) => a.eq(b),
       (None, None) => true,
@@ -352,15 +590,15 @@ type TypeId:
 
 impl Transparent for TypeId:
   type Inner: Integer
-  fn inner(self) -> Integer: |
+  const fn inner(self) -> Integer: |
     self.inner
 
 # This trait is special as it is implicitly implemented for all types.
 trait Any:
-  fn type_id(self) -> TypeId:
+  const fn type_id(self) -> TypeId:
     explain: Get the type identifier of the value.
 
-  fn is<T>(self) -> Boolean:
+  const fn is<T>(self) -> Boolean:
     explain: Check if the value is of the given type.
     define: self.type_id() == T::type_id()
 
@@ -378,10 +616,22 @@ trait Iterator:
     explain: Get the next value from the iterator. None if the iterator is exhausted.
 
 trait EndlessIterator:
-  where:
-    Self: Iterator
   explain: |
     An iterator that never ends.
+
+  # This trait is a specialization of the `Iterator` trait.
+  # Specializations are used to provide additional information about the trait.
+  # It also defines the specialized methods.
+  specialization:
+    impl Iterator:
+      type Item: super::Item
+
+      fn next(mut self) -> Option<Self::Item>: |
+        Some((self as EndlessIterator).next())
+
+  type Item:
+    explain: |
+      The type of the items produced by the iterator.
 
   fn next(mut self) -> Self::Item:
     explain: Get the next value from the iterator.
@@ -396,10 +646,10 @@ trait DoubleEndedIterator:
     explain: Get the next value from the back of the iterator. None if the iterator is exhausted.
 
 impl String:
-  extern fn len(self) -> Integer:
+  extern const fn len(self) -> Integer:
     explain: Get the length of the string.
 
-  fn is_empty(self) -> Boolean:
+  const fn is_empty(self) -> Boolean:
     explain: Check if the string is empty.
     define: self.len() == 0
 
@@ -411,10 +661,10 @@ impl String:
     explain: Insert the other string at the given index.
     check: 0 <= index && index <= self.len()
 
-  extern fn starts_with(self, prefix = String) -> Boolean:
+  extern const fn starts_with(self, prefix = String) -> Boolean:
     explain: Check if the string starts with the given prefix.
 
-  extern fn ends_with(self, suffix = String) -> Boolean:
+  extern const fn ends_with(self, suffix = String) -> Boolean:
     explain: Check if the string ends with the given suffix.
 
   extern fn to_uppercase(self) -> String:
@@ -448,7 +698,7 @@ impl String:
   extern fn lines(self) -> Lines:
     explain: Split the string into lines.
 
-  extern fn contains(self, pattern = String) -> Boolean:
+  extern const fn contains(self, pattern = String) -> Boolean:
     explain: Check if the string contains the given pattern.
 
   extern fn find(self, pattern = String) -> Option<Integer>:
@@ -457,25 +707,25 @@ impl String:
   extern fn rfind(self, pattern = String) -> Option<Integer>:
     explain: Find the last occurrence of the pattern in the string.
 
-  extern fn is_ascii(self) -> Boolean:
+  extern const fn is_ascii(self) -> Boolean:
     explain: Check if the string is ASCII.
 
-  extern fn is_ascii_lowercase(self) -> Boolean:
+  extern const fn is_ascii_lowercase(self) -> Boolean:
     explain: Check if the string is ASCII lowercase.
 
-  extern fn is_ascii_uppercase(self) -> Boolean:
+  extern const fn is_ascii_uppercase(self) -> Boolean:
     explain: Check if the string is ASCII uppercase.
 
-  extern fn is_ascii_alphabetic(self) -> Boolean:
+  extern const fn is_ascii_alphabetic(self) -> Boolean:
     explain: Check if the string is ASCII alphabetic.
 
-  extern fn is_ascii_alphanumeric(self) -> Boolean:
+  extern const fn is_ascii_alphanumeric(self) -> Boolean:
     explain: Check if the string is ASCII alphanumeric.
 
   extern fn split(self, pattern = String) -> Split:
     explain: Split the string by the given pattern.
 
-  extern fn is_regex_match(self, pattern = Regex) -> Boolean:
+  extern const fn is_regex_match(self, pattern = Regex) -> Boolean:
     explain: Check if the whole string matches the given regular expression pattern.
 
 extern type Lines:
@@ -504,7 +754,7 @@ impl TryFrom<String> for Regex:
     explain: Parse the string as a regular expression pattern. None if the pattern is invalid.
 
 impl ConstImplicitInto<Regex> for String:
-  fn const_implicit_into(self) -> Regex: |
+  const fn const_implicit_into(self) -> Regex: |
     self.try_into().expect("Invalid regular expression pattern")
 
 type DateFmt:
@@ -517,7 +767,7 @@ impl TryFrom<String> for DateFmt:
     explain: Parse the string as a date format pattern. None if the pattern is invalid.
 
 impl ConstImplicitInto<DateFmt> for String:
-  fn const_implicit_into(self) -> DateFmt: |
+  const fn const_implicit_into(self) -> DateFmt: |
     self.try_into().expect("Invalid date format pattern")
 
 impl Date:
