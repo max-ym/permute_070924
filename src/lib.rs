@@ -28,6 +28,9 @@ pub mod expr;
 /// actual [crate::domain::Domain].
 pub mod contract;
 
+/// Module to aid user in understanding errors and providing hints on how to fix them.
+pub mod error_expl;
+
 #[cfg(test)]
 pub fn init_log() {
     use log::*;
