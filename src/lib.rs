@@ -27,3 +27,31 @@ pub mod expr;
 /// from YAML files. This is used to validate the configuration against
 /// actual [crate::domain::Domain].
 pub mod contract;
+
+#[cfg(test)]
+pub fn init_log() {
+    use log::*;
+
+    flexi_logger::Logger::with(LevelFilter::Trace)
+        .format(format)
+        .start()
+        .unwrap();
+
+    fn format(
+        write: &mut dyn std::io::Write,
+        _: &mut flexi_logger::DeferredNow,
+        record: &Record,
+    ) -> std::io::Result<()> {
+        write.write_all(
+            format!(
+                "[{} {}:{}] {} - {}",
+                record.level(),
+                record.file().unwrap_or_default(),
+                record.line().unwrap_or_default(),
+                record.module_path().unwrap_or_default(),
+                record.args()
+            )
+            .as_bytes(),
+        )
+    }
+}
