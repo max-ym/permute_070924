@@ -1,14 +1,24 @@
 use serde::{Deserialize, Deserializer};
 
+/// Header of the Permute YAML file.
+/// Allows to check whether the file is a Permute file, and then
+/// to extract version, type of the file, to further check if it is
+/// supported.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Header {
+    /// Version "0.1" of the Permute YAML file.
     pub version: Version,
+
+    /// Type of the file.
     #[serde(rename = "type")]
     pub ty: FileType,
+
+    /// Optional use expressions in the file.
     #[serde(rename = "use", default)]
     pub uses: Vec<Use>,
 }
 
+/// Version of the Permute YAML file. This parser supports only version "0.1".
 #[derive(Debug, Clone)]
 pub struct Version;
 
