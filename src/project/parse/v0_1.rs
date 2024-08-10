@@ -52,9 +52,9 @@ impl std::borrow::Borrow<str> for Use {
 }
 
 /// File type of Permute YAML.
-/// 
+///
 /// # Deserialize
-/// In YAML is it represented as string, e.g. 
+/// In YAML is it represented as string, e.g.
 /// ```yaml
 /// type: main
 /// ```
@@ -134,7 +134,8 @@ impl<'de> Deserialize<'de> for FileType {
             where
                 A: serde::de::MapAccess<'v>,
             {
-                let custom = Custom::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
+                let custom =
+                    Custom::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
                 Ok(FileType::Custom(custom.custom))
             }
         }
