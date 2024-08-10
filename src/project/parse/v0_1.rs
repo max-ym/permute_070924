@@ -1,17 +1,21 @@
-#[derive(Debug, Clone, serde::Deserialize)]
+use serde::{Deserialize, Deserializer};
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Header {
     pub version: Version,
+    #[serde(rename = "type")]
     pub ty: FileType,
+    #[serde(rename = "use", default)]
     pub uses: Vec<Use>,
 }
 
 #[derive(Debug, Clone)]
-struct Version;
+pub struct Version;
 
-impl<'de> serde::Deserialize<'de> for Version {
+impl<'de> Deserialize<'de> for Version {
     fn deserialize<D>(deserializer: D) -> Result<Version, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         // Please review, and improve handling of the new versions when they come.
         // This anyway won't compile without human review due to
@@ -25,68 +29,194 @@ impl<'de> serde::Deserialize<'de> for Version {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Use {
-    pub item: ItemPath,
-    pub use_as_or_wildcard: Option<UseAsOrWildcard>,
-}
+/// Use expression, e.g. `use std::io::Read;`. Without validation if it is actually correct.
+/// This is parsed as plain string for further validation. And this type is just a marker
+/// for the parser.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Use(String);
 
-#[derive(Debug, Clone)]
-pub enum UseAsOrWildcard {
-    UseAs(ItemName),
-    Wildcard,
-}
-
-#[derive(Debug, Clone)]
-pub struct ItemPath {
-    pub path: Vec<ItemName>,
-}
-
-/// Item name, which is a string that can be used to reference an item in the project.
-/// The items are: modules, types, functions, variables, etc.
-/// The item name is a string that can contain only alphanumeric characters and underscores.
-/// The item name cannot be empty, and cannot be just an underscore.
-#[derive(Debug, Clone)]
-pub struct ItemName(String);
-
-#[derive(Debug, Clone)]
-pub enum InvalidItemName {
-    Empty,
-    Invalid(String),
-}
-
-impl Into<String> for ItemName {
-    fn into(self) -> String {
-        self.0
+impl std::borrow::Borrow<str> for Use {
+    fn borrow(&self) -> &str {
+        &self.0
     }
 }
 
-impl std::fmt::Display for ItemName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
+/// File type of Permute YAML.
+/// 
+/// # Deserialize
+/// In YAML is it represented as string, e.g. 
+/// ```yaml
+/// type: main
+/// ```
+/// Or it can be represented as custom type, e.g.
+/// ```yaml
+/// type:
+///  custom: my_type
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FileType {
+    Main,
+    Transform,
+    Feeder,
+    Sink,
+    Source,
+    Struct,
+    Custom(String),
 }
 
-impl TryFrom<String> for ItemName {
-    type Error = InvalidItemName;
-
-    fn try_from(s: String) -> Result<Self, Self::Error> {
-        if s.is_empty() {
-            Err(InvalidItemName::Empty)
-        } else if s == "_" {
-            Err(InvalidItemName::Invalid(s))
-        } else if s.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            Ok(ItemName(s))
-        } else {
-            Err(InvalidItemName::Invalid(s))
+impl FileType {
+    pub fn name(&self) -> &'static str {
+        use FileType::*;
+        match self {
+            Main => "main",
+            Transform => "transform",
+            Feeder => "feeder",
+            Sink => "sink",
+            Source => "source",
+            Struct => "struct",
+            Custom(_) => "custom",
         }
     }
+
+    pub fn from_name(name: &str) -> Option<FileType> {
+        use FileType::*;
+        let variant = match name {
+            "main" => Main,
+            "transform" => Transform,
+            "feeder" => Feeder,
+            "sink" => Sink,
+            "source" => Source,
+            "struct" => Struct,
+            "custom" => Custom(String::new()),
+            _ => return None,
+        };
+        Some(variant)
+    }
 }
 
-impl std::ops::Deref for ItemName {
-    type Target = str;
+impl<'de> Deserialize<'de> for FileType {
+    fn deserialize<D>(deserializer: D) -> Result<FileType, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Debug, Deserialize)]
+        struct Custom {
+            custom: String,
+        }
 
-    fn deref(&self) -> &str {
-        &self.0
+        struct FileTypeVisitor;
+
+        impl<'v> serde::de::Visitor<'v> for FileTypeVisitor {
+            type Value = FileType;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("file type")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<FileType, E>
+            where
+                E: serde::de::Error,
+            {
+                FileType::from_name(value).ok_or_else(|| E::custom("unknown file type"))
+            }
+
+            fn visit_map<A>(self, map: A) -> Result<FileType, A::Error>
+            where
+                A: serde::de::MapAccess<'v>,
+            {
+                let custom = Custom::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
+                Ok(FileType::Custom(custom.custom))
+            }
+        }
+
+        deserializer.deserialize_any(FileTypeVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_file_type() {
+        use serde_yml::from_str;
+
+        let yaml = r#"
+            main
+        "#;
+
+        let v: FileType = from_str(yaml).unwrap();
+        assert_eq!(v, FileType::Main);
+
+        let yaml = r#"
+            custom: my_type
+        "#;
+
+        let v: FileType = from_str(yaml).unwrap();
+        assert_eq!(v, FileType::Custom("my_type".to_owned()));
+    }
+
+    #[test]
+    fn deserialize_version() {
+        use serde_yml::from_str;
+
+        let yaml = r#"
+            0.1
+        "#;
+
+        from_str::<Version>(yaml).unwrap();
+
+        // Check if invalid version is not accepted
+        let yaml = r#"
+            0.2
+        "#;
+
+        let v: Result<Version, _> = from_str(yaml);
+        assert!(v.is_err());
+    }
+
+    #[test]
+    fn header_parse_main() {
+        use serde_yml::from_str;
+
+        let yaml = r#"
+            version: 0.1
+            type: main
+            use:
+              - std::io::Read
+        "#;
+
+        let v: Header = from_str(yaml).unwrap();
+        assert_eq!(v.ty, FileType::Main);
+        assert_eq!(v.uses.len(), 1);
+        assert_eq!(v.uses[0].0, "std::io::Read");
+
+        // YAML without use
+        let yaml = r#"
+            version: 0.1
+            type: main
+        "#;
+
+        let v: Header = from_str(yaml).unwrap();
+        assert_eq!(v.ty, FileType::Main);
+        assert!(v.uses.is_empty());
+    }
+
+    #[test]
+    fn header_parse_custom() {
+        use serde_yml::from_str;
+
+        let yaml = r#"
+            version: 0.1
+            type:
+              custom: my_type
+            use:
+              - std::io::Read
+        "#;
+
+        let v: Header = from_str(yaml).unwrap();
+        assert_eq!(v.ty, FileType::Custom("my_type".to_owned()));
+        assert_eq!(v.uses.len(), 1);
+        assert_eq!(v.uses[0].0, "std::io::Read");
     }
 }
