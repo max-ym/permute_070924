@@ -1,5 +1,8 @@
 use serde::{Deserialize, Deserializer};
 
+/// Parsing and basic validation of contents of the Permute YAML file, excluding the header.
+pub mod content;
+
 /// Header of the Permute YAML file.
 /// Allows to check whether the file is a Permute file, and then
 /// to extract version, type of the file, to further check if it is
@@ -141,6 +144,44 @@ impl<'de> Deserialize<'de> for FileType {
         }
 
         deserializer.deserialize_any(FileTypeVisitor)
+    }
+}
+
+/// Identifier name.
+/// Alpha-numeric string, starting with a letter, can contain underscores.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Deserialize)]
+#[serde(transparent)]
+pub struct IdentName(String);
+
+#[derive(Debug, PartialEq, Eq, Clone, thiserror::Error)]
+pub enum IdentNameError {
+    #[error("empty string")]
+    Empty,
+
+    #[error("must start with a letter")]
+    StartWithLetter,
+
+    #[error("can contain only alphanumeric characters and underscores")]
+    InvalidChar,
+}
+
+impl TryFrom<String> for IdentName {
+    type Error = IdentNameError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if let Some(first_char) = value.chars().next() {
+            if !first_char.is_alphabetic() {
+                return Err(IdentNameError::StartWithLetter);
+            }
+        } else {
+            return Err(IdentNameError::Empty);
+        }
+
+        if !value.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return Err(IdentNameError::InvalidChar);
+        }
+
+        Ok(IdentName(value))
     }
 }
 
