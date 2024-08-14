@@ -1,4 +1,5 @@
 use serde::{Deserialize, Deserializer};
+use smallvec::SmallVec;
 
 /// Parsing and basic validation of contents of the Permute YAML file, excluding the header.
 pub mod content;
@@ -191,6 +192,12 @@ impl TryFrom<&str> for IdentName {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         IdentName::try_from(value.to_owned())
     }
+}
+
+/// Path to an item.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ItemPath {
+    items: SmallVec<[IdentName; 1]>,
 }
 
 #[cfg(test)]
