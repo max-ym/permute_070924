@@ -6,6 +6,8 @@ use logos::Logos;
 use serde::Deserialize;
 use smallvec::SmallVec;
 
+// TODO add parsing for const generics.
+
 // #[derive(Debug, Deserialize)]
 // pub struct Transform {
 //     impls: Vec<Impl>,
@@ -15,9 +17,50 @@ use smallvec::SmallVec;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Impl {
-    impl_for: IdentName,
+    impl_for: ObjectType,
     kind: ImplKind,
     generics: Vec<IdentName>,
+}
+
+/// Object type. Used for function arguments, return types.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ObjectType {
+    /// Concrete type with optional generics.
+    Concrete {
+        /// Name of the type.
+        name: IdentName,
+
+        /// Generics of the type. Can be empty.
+        generics: Vec<IdentName>,
+    },
+
+    /// Dynamic trait type with optional generics.
+    Trait {
+        /// Name of the trait.
+        name: IdentName,
+
+        /// Generics of the trait. Can be empty.
+        generics: Vec<IdentName>,
+    },
+
+    /// Function type with optional generics.
+    Func {
+        /// Generics of the function. Can be empty.
+        generics: Vec<IdentName>,
+
+        /// Argument types of the function.
+        args: Vec<ObjectType>,
+
+        /// Return type(s) of the function. Can be more than one if function returns a tuple.
+        ret: Vec<ObjectType>,
+    },
+
+    /// Empty tuple type.
+    /// ```yaml
+    /// Fn() -> ()
+    /// #       ^^
+    /// ```
+    Empty,
 }
 
 /// Implementation variant.
@@ -254,7 +297,10 @@ impl ImplLex {
             let mut kind = kind;
             let impl_for = kind.order_correction(first_ident);
             Ok(Impl {
-                impl_for,
+                impl_for: ObjectType::Concrete {
+                    name: impl_for,
+                    generics: vec![], // TODO support for generics.
+                },
                 kind,
                 generics: generics.to_vec(),
             })
@@ -283,11 +329,18 @@ mod tests {
     #[test]
     fn impl_lex() {
         let s = "impl EmploymentRecord as EmploymentRecordExt";
+        let impl_for = {
+            let ident = IdentName::try_from("EmploymentRecord").unwrap();
+            ObjectType::Concrete {
+                name: ident,
+                generics: vec![],
+            }
+        };
         let impl_ = ImplLex::parse(s).unwrap();
         assert_eq!(
             impl_,
             Impl {
-                impl_for: IdentName::try_from("EmploymentRecord").unwrap(),
+                impl_for: impl_for.clone(),
                 kind: ImplKind::AsExt(IdentName::try_from("EmploymentRecordExt").unwrap()),
                 generics: vec![]
             }
@@ -298,7 +351,7 @@ mod tests {
         assert_eq!(
             impl_,
             Impl {
-                impl_for: IdentName::try_from("EmploymentRecord").unwrap(),
+                impl_for: impl_for.clone(),
                 kind: ImplKind::Trait(IdentName::try_from("EmploymentRecordTrait").unwrap()),
                 generics: vec![]
             }
@@ -309,7 +362,7 @@ mod tests {
         assert_eq!(
             impl_,
             Impl {
-                impl_for: IdentName::try_from("EmploymentRecord").unwrap(),
+                impl_for: impl_for.clone(),
                 kind: ImplKind::Simple,
                 generics: vec![]
             }
@@ -320,7 +373,7 @@ mod tests {
         assert_eq!(
             impl_,
             Impl {
-                impl_for: IdentName::try_from("EmploymentRecord").unwrap(),
+                impl_for: impl_for.clone(),
                 kind: ImplKind::Trait(IdentName::try_from("EmploymentRecordTrait").unwrap()),
                 generics: vec![IdentName::try_from("T").unwrap()]
             }
@@ -331,7 +384,7 @@ mod tests {
         assert_eq!(
             impl_,
             Impl {
-                impl_for: IdentName::try_from("EmploymentRecord").unwrap(),
+                impl_for: impl_for.clone(),
                 kind: ImplKind::Trait(IdentName::try_from("EmploymentRecordTrait").unwrap()),
                 generics: vec![
                     IdentName::try_from("T").unwrap(),
