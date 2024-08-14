@@ -185,6 +185,14 @@ impl TryFrom<String> for IdentName {
     }
 }
 
+impl TryFrom<&str> for IdentName {
+    type Error = IdentNameError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        IdentName::try_from(value.to_owned())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
