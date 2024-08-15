@@ -1,5 +1,3 @@
-use std::ops;
-
 use logos::Logos;
 use smallvec::SmallVec;
 
@@ -10,13 +8,70 @@ type LexIter<'a> = logos::SpannedIter<'a, HeadLex>;
 
 /// Check if parser could not start parsing from the very beginning of the input, as
 /// first token is not valid for the parser.
-/// 
+///
 /// This allows to understand whether the parsing itself failed mid-way or the input
 /// was not valid for the parser to begin with. Allowing to decide on whether to
 /// try another course or to terminate current execution with underlying sub-parser's error to
 /// be propagated.
 trait IsWrongStart {
     fn is_wrong_start(&self) -> bool;
+}
+
+/// Parse lexemes into a structure.
+trait Parse: Sized {
+    type Error;
+
+    fn parse(tokens: &mut LexIter) -> Result<Self, Self::Error>;
+}
+
+/// Optional parsing. This can be used when some part of the input is optional, to not
+/// fail the parsing if it is not present and instead return `Ok(None)`.
+///
+/// It is automatically implemented for all types that implement [Parse] trait and their
+/// error type implements [IsWrongStart].
+trait ParseOption: Parse {
+    fn parse_option(tokens: &mut LexIter) -> Option<Result<Self, Self::Error>>;
+}
+
+impl<E, P> ParseOption for P
+where
+    E: IsWrongStart,
+    P: Parse<Error = E>,
+{
+    fn parse_option(tokens: &mut LexIter) -> Option<Result<Self, Self::Error>> {
+        match Self::parse(tokens) {
+            Ok(v) => Some(Ok(v)),
+            Err(e) => {
+                if e.is_wrong_start() {
+                    None
+                } else {
+                    Some(Err(e))
+                }
+            }
+        }
+    }
+}
+
+/// Default value for [Result] output from [ParseOption].
+trait UnwrapOrDefaultParsed<T> {
+    fn unwrap_or_default_parsed(self) -> T;
+}
+
+impl<P, E> UnwrapOrDefaultParsed<P> for Option<Result<P, E>>
+where
+    E: IsWrongStart,
+    P: Parse<Error = E> + Default,
+{
+    fn unwrap_or_default_parsed(self) -> P {
+        match self {
+            Some(Ok(v)) => v,
+            _ => P::default(),
+        }
+    }
+}
+
+trait WrongStart: From<HeadError> + IsWrongStart {
+    fn wrong_start(wrong_token: HeadLex) -> Self;
 }
 
 /// Create a guarded context for running a parser to restore the original state if parsing fails.
@@ -32,8 +87,28 @@ impl<'lex, 'context> Guard<'lex> for LexIter<'lex> {
             Err(e) => {
                 *self = original;
                 Err(e)
-            },
+            }
         }
+    }
+}
+
+pub enum ItemPathError {
+    /// Item path is missing a name.
+    MissingName,
+
+    /// Item path has an unparseable token.
+    UnknownToken(String),
+
+    /// Unexpected end of input.
+    UnexpectedEnd,
+
+    /// Item path has an invalid end.
+    InvalidEnd,
+}
+
+impl ItemPath {
+    fn parse(tokens: &mut LexIter) -> Result<ItemPath, ItemPathError> {
+        todo!()
     }
 }
 
@@ -68,7 +143,7 @@ pub enum ObjectType {
         name: ItemPath,
 
         /// Generics of the type. Can be empty.
-        generics: Vec<IdentName>,
+        generics: Vec<DeclGeneric>,
     },
 
     /// Dynamic trait type with optional generics.
@@ -77,13 +152,13 @@ pub enum ObjectType {
         name: ItemPath,
 
         /// Generics of the trait. Can be empty.
-        generics: Vec<IdentName>,
+        generics: Vec<DeclGeneric>,
     },
 
     /// Function type with optional generics.
     Func {
         /// Generics of the function. Can be empty.
-        generics: Vec<IdentName>,
+        generics: Vec<DeclGeneric>,
 
         /// Argument types of the function.
         args: Vec<ObjectType>,
@@ -107,6 +182,14 @@ pub enum ObjectTypeError {
     UnknownToken(String),
 
     UnexpectedEnd,
+
+    ItemPathFailure(ItemPathError),
+}
+
+impl From<ItemPathError> for ObjectTypeError {
+    fn from(err: ItemPathError) -> ObjectTypeError {
+        ObjectTypeError::ItemPathFailure(err)
+    }
 }
 
 impl IsWrongStart for ObjectTypeError {
@@ -115,9 +198,143 @@ impl IsWrongStart for ObjectTypeError {
     }
 }
 
-impl ObjectType {
+impl WrongStart for ObjectTypeError {
+    fn wrong_start(wrong_token: HeadLex) -> Self {
+        ObjectTypeError::InvalidStart(wrong_token)
+    }
+}
+
+impl From<HeadError> for ObjectTypeError {
+    fn from(err: HeadError) -> ObjectTypeError {
+        match err {
+            HeadError::UnexpectedEnd => ObjectTypeError::UnexpectedEnd,
+            HeadError::UnknownToken(s) => ObjectTypeError::UnknownToken(s),
+        }
+    }
+}
+
+impl Parse for ObjectType {
+    type Error = ObjectTypeError;
+
     fn parse(tokens: &mut LexIter) -> Result<ObjectType, ObjectTypeError> {
-        unimplemented!()
+        use ObjectTypeError as E;
+
+        macro_rules! attempt {
+            ($f:ident) => {
+                match ObjectType::$f(tokens) {
+                    Ok(t) => return Ok(t),
+                    Err(E::InvalidStart(_)) => {}
+                    Err(e) => return Err(e),
+                }
+            };
+        }
+
+        // First try parse all variants that begin with a keyword.
+        attempt!(parse_trait);
+        attempt!(parse_func);
+
+        // The only remaining option is a concrete type, which starts without a keyword.
+        ObjectType::parse_concrete(tokens)
+    }
+}
+
+impl ObjectType {
+    fn parse_concrete(tokens: &mut LexIter) -> Result<ObjectType, ObjectTypeError> {
+        tokens.guard(|iter| {
+            let name = ItemPath::parse(iter)?;
+            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+
+            Ok(ObjectType::Concrete { name, generics })
+        })
+    }
+
+    fn parse_trait(tokens: &mut LexIter) -> Result<ObjectType, ObjectTypeError> {
+        use HeadLex::*;
+        use ObjectTypeError as E;
+
+        tokens.guard(|iter| {
+            // Trait type starts with `dyn` keyword.
+            Dyn.expect_start::<E>(iter)?;
+
+            let name = ItemPath::parse(iter)?;
+            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+
+            Ok(ObjectType::Trait { name, generics })
+        })
+    }
+
+    fn parse_func(tokens: &mut LexIter) -> Result<ObjectType, ObjectTypeError> {
+        use HeadLex::*;
+        use ObjectTypeError as E;
+
+        tokens.guard(|iter| {
+            // Function type starts with `fn` keyword.
+            Fn.expect_start::<E>(iter)?;
+
+            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+
+            // Parse arguments.
+            let mut args: SmallVec<[_; 8]> = SmallVec::new();
+            OpenParen.expect(iter, E::UnexpectedEnd)?; // TODO normal errors here and below
+
+            let mut comma = false;
+            loop {
+                if CloseParen.probe(iter) {
+                    break;
+                }
+
+                args.push(ObjectType::parse(iter)?);
+
+                if Comma.probe(iter) {
+                    if comma {
+                        return Err(E::UnexpectedEnd);
+                    }
+
+                    // Comma is allowed to be trailing.
+                    comma = true;
+                    continue;
+                } else {
+                    comma = false;
+                }
+            }
+            CloseParen.expect(iter, E::UnexpectedEnd)?;
+
+            // Parse optional return type.
+            let mut ret: SmallVec<[_; 8]> = SmallVec::new();
+            let mut comma = false;
+            if Arrow.probe(iter) {
+                // Either a tuple or a single type.
+                if OpenParen.probe(iter) {
+                    loop {
+                        if CloseParen.probe(iter) {
+                            break;
+                        }
+
+                        ret.push(ObjectType::parse(iter)?);
+
+                        if Comma.probe(iter) {
+                            if comma {
+                                return Err(E::UnexpectedEnd);
+                            }
+
+                            // Comma is allowed to be trailing.
+                            comma = true;
+                            continue;
+                        } else {
+                            comma = false;
+                        }
+                    }
+                } else {
+                    ret.push(ObjectType::parse(iter)?);
+                }
+            }
+
+            Ok(ObjectType::Func {
+                generics,
+                args: args.into_vec(),
+                ret: ret.into_vec(),
+            })
+        })
     }
 }
 
@@ -286,21 +503,43 @@ fn lex_to_str_lit(lex: &mut logos::Lexer<HeadLex>) -> String {
 impl HeadLex {
     /// Expect next token to be the same as this one.
     fn expect<E: From<HeadError>>(&self, iter: &mut LexIter, err: E) -> Result<(), E> {
+        self.expect_peek(iter).map_err(|e| match e {
+            Ok(_) => err,
+            Err(e) => e.into(),
+        })
+    }
+
+    /// Expect next token to be the same as this one.
+    /// If not, return the next token that was instead. If there is no next token, return [HeadError].
+    /// If next token is the same, advance the iterator.
+    fn expect_peek(&self, iter: &mut LexIter) -> Result<(), Result<HeadLex, HeadError>> {
         use HeadError::*;
 
-        if let Some(next) = iter.next() {
-            if let Ok(next) = next.0 {
-                if next == *self {
-                    Ok(())
+        iter.guard(|iter| {
+            if let Some(next) = iter.next() {
+                if let Ok(next) = next.0 {
+                    if next == *self {
+                        Ok(())
+                    } else {
+                        Err(Ok(next))
+                    }
                 } else {
-                    Err(err)
+                    Err(Err(UnknownToken(iter.slice().to_owned()).into()))
                 }
             } else {
-                Err(UnknownToken(iter.slice().to_owned()).into())
+                Err(Err(UnexpectedEnd.into()))
             }
-        } else {
-            Err(UnexpectedEnd.into())
-        }
+        })
+    }
+
+    /// Expect next token to be the same as this one. If not, return the next token that was instead.
+    /// This function wraps the error into a [WrongStart] error. Which may be useful
+    /// to reduce boilerplate in probing at the start of the parser.
+    fn expect_start<E: WrongStart>(&self, iter: &mut LexIter) -> Result<(), E> {
+        self.expect_peek(iter).map_err(|e| match e {
+            Ok(t) => WrongStart::wrong_start(t),
+            Err(e) => e.into(),
+        })
     }
 
     /// Check if next token is the same as this one. If so, advance the iterator and return true.
@@ -420,25 +659,92 @@ pub enum ImplLexError {
 /// ```yaml
 /// impl<T> EmploymentRecordTrait<T> for EmploymentRecord
 /// #   ^^^                      ^^^
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DeclGeneric {
     name: IdentName,
-    spec: DeclGenericSpec,
 }
 
-pub enum DeclGenericSpec {
-    /// Constant generic.
-    Const {
-        /// Type of the constant.
-        ty: ObjectType,
-    },
+pub enum DeclGenericError {
+    /// Generic declaration is missing a name.
+    MissingName,
 
-    /// Just a simple identifier without any specification.
-    Simple,
+    /// Generic declaration has an unparseable token.
+    UnknownToken(String),
+
+    /// Unexpected end of input.
+    UnexpectedEnd,
 }
 
-impl DeclGeneric {
-    fn parse() -> Result<DeclGeneric, ()> {
-        unimplemented!()
+impl IsWrongStart for DeclGenericError {
+    fn is_wrong_start(&self) -> bool {
+        matches!(self, DeclGenericError::MissingName)
+    }
+}
+
+impl WrongStart for DeclGenericError {
+    fn wrong_start(_: HeadLex) -> Self {
+        DeclGenericError::MissingName
+    }
+}
+
+impl From<HeadError> for DeclGenericError {
+    fn from(err: HeadError) -> DeclGenericError {
+        match err {
+            HeadError::UnexpectedEnd => DeclGenericError::UnexpectedEnd,
+            HeadError::UnknownToken(s) => DeclGenericError::UnknownToken(s),
+        }
+    }
+}
+
+impl Parse for DeclGeneric {
+    type Error = DeclGenericError;
+
+    fn parse(tokens: &mut LexIter) -> Result<DeclGeneric, DeclGenericError> {
+        use DeclGenericError::*;
+        use HeadLex::*;
+
+        tokens.guard(|iter| {
+            let name = HeadLex::expect_ident(iter, MissingName)?;
+
+            Ok(DeclGeneric { name })
+        })
+    }
+}
+
+impl Parse for Vec<DeclGeneric> {
+    type Error = DeclGenericError;
+
+    /// Parse a list of generics. Consuming angle brackets too.
+    fn parse(tokens: &mut LexIter) -> Result<Vec<DeclGeneric>, DeclGenericError> {
+        use DeclGenericError as E;
+        use HeadLex::*;
+
+        // Parse generics split by commas.
+        tokens.guard(|iter| {
+            OpenAngle.expect_start::<E>(iter)?;
+
+            // First one is required.
+            let mut generics: SmallVec<[_; 8]> = SmallVec::new();
+            generics.push(DeclGeneric::parse(iter)?);
+
+            loop {
+                // Parse comma indicating further elements.
+                if Comma.probe(iter) {
+                    // Since there is a comma, there _can_ be another generic.
+                    // Comma is allowed to be trailing.
+                    match DeclGeneric::parse_option(iter) {
+                        Some(Ok(g)) => generics.push(g),
+                        Some(Err(e)) => return Err(e),
+                        None => break,
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            CloseAngle.expect(iter, E::UnexpectedEnd)?;
+            Ok(generics.into_vec())
+        })
     }
 }
 
@@ -549,6 +855,12 @@ pub enum DefGenericError {
     ObjectTypeFailed(ObjectTypeError),
 }
 
+impl IsWrongStart for DefGenericError {
+    fn is_wrong_start(&self) -> bool {
+        matches!(self, DefGenericError::MissingName)
+    }
+}
+
 impl From<ObjectTypeError> for DefGenericError {
     fn from(err: ObjectTypeError) -> DefGenericError {
         DefGenericError::ObjectTypeFailed(err)
@@ -564,7 +876,9 @@ impl From<HeadError> for DefGenericError {
     }
 }
 
-impl DefGeneric {
+impl Parse for DefGeneric {
+    type Error = DefGenericError;
+
     fn parse(tokens: &mut LexIter) -> Result<DefGeneric, DefGenericError> {
         use DefGenericError::*;
         use HeadLex::*;
