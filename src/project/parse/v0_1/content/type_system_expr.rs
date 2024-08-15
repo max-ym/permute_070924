@@ -1,5 +1,5 @@
 use logos::Logos;
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 
 use super::*;
 
@@ -274,60 +274,23 @@ impl ObjectType {
             let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
 
             // Parse arguments.
-            let mut args: SmallVec<[_; 8]> = SmallVec::new();
             OpenParen.expect(iter, E::UnexpectedEnd)?; // TODO normal errors here and below
-
-            let mut comma = false;
-            loop {
-                if CloseParen.probe(iter) {
-                    break;
-                }
-
-                args.push(ObjectType::parse(iter)?);
-
-                if Comma.probe(iter) {
-                    if comma {
-                        return Err(E::UnexpectedEnd);
-                    }
-
-                    // Comma is allowed to be trailing.
-                    comma = true;
-                    continue;
-                } else {
-                    comma = false;
-                }
-            }
+            let args: SmallVec<[_; 8]> = HeadLex::comma_smallvec(iter, ObjectType::parse)?;
             CloseParen.expect(iter, E::UnexpectedEnd)?;
 
             // Parse optional return type.
-            let mut ret: SmallVec<[_; 8]> = SmallVec::new();
-            let mut comma = false;
-            if Arrow.probe(iter) {
+            let ret: SmallVec<[_; 8]> = if Arrow.probe(iter) {
                 // Either a tuple or a single type.
                 if OpenParen.probe(iter) {
-                    loop {
-                        if CloseParen.probe(iter) {
-                            break;
-                        }
-
-                        ret.push(ObjectType::parse(iter)?);
-
-                        if Comma.probe(iter) {
-                            if comma {
-                                return Err(E::UnexpectedEnd);
-                            }
-
-                            // Comma is allowed to be trailing.
-                            comma = true;
-                            continue;
-                        } else {
-                            comma = false;
-                        }
-                    }
+                    let v = HeadLex::comma_smallvec(iter, ObjectType::parse)?;
+                    CloseParen.expect(iter, E::UnexpectedEnd)?;
+                    v
                 } else {
-                    ret.push(ObjectType::parse(iter)?);
+                    smallvec![ObjectType::parse(iter)?]
                 }
-            }
+            } else {
+                smallvec![]
+            };
 
             Ok(ObjectType::Func {
                 generics,
@@ -618,6 +581,34 @@ impl HeadLex {
             Err(UnexpectedEnd.into())
         }
     }
+
+    /// Parse a list of elements separated by commas into a small vector.
+    /// Stop when a wrong start is encountered or next token is not a comma.
+    fn comma_smallvec<const N: usize, T, E: From<HeadError> + IsWrongStart>(
+        iter: &mut LexIter,
+        mut f: impl FnMut(&mut LexIter) -> Result<T, E>,
+    ) -> Result<SmallVec<[T; N]>, E> {
+        let mut vec: SmallVec<[T; N]> = SmallVec::new();
+        loop {
+            match f(iter) {
+                Ok(v) => vec.push(v),
+                Err(e) => {
+                    if e.is_wrong_start() {
+                        break;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            }
+
+            if HeadLex::Comma.probe(iter) {
+                continue;
+            } else {
+                break;
+            }
+        }
+        Ok(vec)
+    }
 }
 
 /// Generic error for header parsing, that can occur in any specialized parser.
@@ -722,26 +713,7 @@ impl Parse for Vec<DeclGeneric> {
         // Parse generics split by commas.
         tokens.guard(|iter| {
             OpenAngle.expect_start::<E>(iter)?;
-
-            // First one is required.
-            let mut generics: SmallVec<[_; 8]> = SmallVec::new();
-            generics.push(DeclGeneric::parse(iter)?);
-
-            loop {
-                // Parse comma indicating further elements.
-                if Comma.probe(iter) {
-                    // Since there is a comma, there _can_ be another generic.
-                    // Comma is allowed to be trailing.
-                    match DeclGeneric::parse_option(iter) {
-                        Some(Ok(g)) => generics.push(g),
-                        Some(Err(e)) => return Err(e),
-                        None => break,
-                    }
-                } else {
-                    break;
-                }
-            }
-
+            let generics: SmallVec<[_; 8]> = HeadLex::comma_smallvec(iter, DeclGeneric::parse)?;
             CloseAngle.expect(iter, E::UnexpectedEnd)?;
             Ok(generics.into_vec())
         })
