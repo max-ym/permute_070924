@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 thiserror = "1"
 lazy-regex = "3"
-smallvec = { version = "1.13", features = ["const_new"] }
+smallvec = { version = "1.13", features = ["const_new", "union"] }
 serde = "1"
 serde_yml = "0.0.11"
 log = "0.4"
