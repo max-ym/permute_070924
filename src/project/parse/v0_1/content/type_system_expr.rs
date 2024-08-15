@@ -10,6 +10,11 @@ type LexIter<'a> = logos::SpannedIter<'a, HeadLex>;
 
 /// Check if parser could not start parsing from the very beginning of the input, as
 /// first token is not valid for the parser.
+/// 
+/// This allows to understand whether the parsing itself failed mid-way or the input
+/// was not valid for the parser to begin with. Allowing to decide on whether to
+/// try another course or to terminate current execution with underlying sub-parser's error to
+/// be propagated.
 trait IsWrongStart {
     fn is_wrong_start(&self) -> bool;
 }
