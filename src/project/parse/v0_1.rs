@@ -1,5 +1,5 @@
 use serde::{Deserialize, Deserializer};
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 /// Parsing and basic validation of contents of the Permute YAML file, excluding the header.
 pub mod content;
@@ -198,6 +198,23 @@ impl TryFrom<&str> for IdentName {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ItemPath {
     items: SmallVec<[IdentName; 1]>,
+}
+
+impl ItemPath {
+    /// Whether the path is a single item.
+    pub fn into_single_item(self) -> Result<IdentName, Self> {
+        if self.items.len() == 1 {
+            Ok(self.items.into_iter().next().unwrap())
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn single(ident: IdentName) -> Self {
+        Self {
+            items: smallvec![ident],
+        }
+    }
 }
 
 #[cfg(test)]

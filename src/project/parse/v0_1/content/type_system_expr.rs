@@ -70,6 +70,21 @@ where
     }
 }
 
+trait MapInnerInto<P, U, E, EI> {
+    fn map_inner_into(self, f: impl FnOnce(P) -> U, or_else: EI) -> Result<U, EI>;
+}
+
+impl<P, U, E, EI> MapInnerInto<P, U, E, EI> for Option<Result<P, E>>
+where
+    P: Parse<Error = E>,
+    E: Into<EI>,
+{
+    fn map_inner_into(self, f: impl FnOnce(P) -> U, or_else: EI) -> Result<U, EI> {
+        self.map(|v| v.map(f).map_err(Into::into))
+            .unwrap_or(Err(or_else))
+    }
+}
+
 trait WrongStart: From<HeadError> + IsWrongStart {
     fn wrong_start(wrong_token: HeadLex) -> Self;
 }
@@ -106,9 +121,48 @@ pub enum ItemPathError {
     InvalidEnd,
 }
 
-impl ItemPath {
+impl From<HeadError> for ItemPathError {
+    fn from(err: HeadError) -> ItemPathError {
+        match err {
+            HeadError::UnexpectedEnd => ItemPathError::UnexpectedEnd,
+            HeadError::UnknownToken(s) => ItemPathError::UnknownToken(s),
+        }
+    }
+}
+
+impl IsWrongStart for ItemPathError {
+    fn is_wrong_start(&self) -> bool {
+        matches!(self, ItemPathError::MissingName)
+    }
+}
+
+impl Parse for ItemPath {
+    type Error = ItemPathError;
+
     fn parse(tokens: &mut LexIter) -> Result<ItemPath, ItemPathError> {
-        todo!()
+        use HeadLex::*;
+        use ItemPathError as E;
+
+        tokens.guard(|iter| {
+            let mut items = SmallVec::new();
+            loop {
+                let name = HeadLex::expect_ident(
+                    iter,
+                    if items.is_empty() {
+                        E::MissingName
+                    } else {
+                        E::InvalidEnd
+                    },
+                )?;
+                items.push(name);
+
+                if !PathSeparator.probe(iter) {
+                    break;
+                }
+            }
+
+            Ok(ItemPath { items })
+        })
     }
 }
 
@@ -324,37 +378,37 @@ pub enum ImplKind {
 }
 
 impl ImplKind {
-    /// When parsing, there is two orders of identifiers, where one is the type being implemented
-    /// and the other is the type being implemented for. Sometimes, the order is reversed.
-    /// This function swaps the two identifiers when needed so that the first one is always the
-    /// type being implemented and the second one is the type being implemented for.
-    ///
-    /// # Example
-    /// Direct order: implemented for EmploymentRecord, implementing extension EmploymentRecordExt.
-    /// ```yaml
-    /// impl EmploymentRecord as EmploymentRecordExt:
-    /// ```
-    ///
-    /// Reversed order: implemented for EmploymentRecord, implementing trait EmploymentRecordTrait.
-    /// ```yaml
-    /// impl EmploymentRecordTrait for EmploymentRecord:
-    /// ```
-    ///
-    /// # Return
-    /// Function returns the name of the type being implemented for.
-    fn order_correction(&mut self, mut first_ident: IdentName) -> IdentName {
-        use std::mem::swap;
-        use ImplKind::*;
+    // /// When parsing, there is two orders of identifiers, where one is the type being implemented
+    // /// and the other is the type being implemented for. Sometimes, the order is reversed.
+    // /// This function swaps the two identifiers when needed so that the first one is always the
+    // /// type being implemented and the second one is the type being implemented for.
+    // ///
+    // /// # Example
+    // /// Direct order: implemented for EmploymentRecord, implementing extension EmploymentRecordExt.
+    // /// ```yaml
+    // /// impl EmploymentRecord as EmploymentRecordExt:
+    // /// ```
+    // ///
+    // /// Reversed order: implemented for EmploymentRecord, implementing trait EmploymentRecordTrait.
+    // /// ```yaml
+    // /// impl EmploymentRecordTrait for EmploymentRecord:
+    // /// ```
+    // ///
+    // /// # Return
+    // /// Function returns the name of the type being implemented for.
+    // fn order_correction(&mut self, mut first_ident: IdentName) -> IdentName {
+    //     use std::mem::swap;
+    //     use ImplKind::*;
 
-        match self {
-            AsExt(_) => first_ident,
-            Trait(ident) => {
-                swap(ident, &mut first_ident);
-                first_ident
-            }
-            Simple => first_ident,
-        }
-    }
+    //     match self {
+    //         AsExt(_) => first_ident,
+    //         Trait(ident) => {
+    //             swap(ident, &mut first_ident);
+    //             first_ident
+    //         }
+    //         Simple => first_ident,
+    //     }
+    // }
 }
 
 /// Lexical element of `impl` or `fn` headers.
@@ -767,7 +821,7 @@ pub enum DefGeneric {
     /// This should then be resolved to a type, via name resolution mechanics.
     Path {
         /// Name of the generic parameter.
-        name: ItemPath,
+        path: ItemPath,
     },
 }
 
@@ -824,7 +878,15 @@ pub enum DefGenericError {
     InvalidEnd,
 
     /// Generic type parsing has failed.
-    ObjectTypeFailed(ObjectTypeError),
+    ObjectTypeFail(ObjectTypeError),
+
+    ItemPathFail(ItemPathError),
+}
+
+impl From<ItemPathError> for DefGenericError {
+    fn from(err: ItemPathError) -> DefGenericError {
+        DefGenericError::ItemPathFail(err)
+    }
 }
 
 impl IsWrongStart for DefGenericError {
@@ -835,7 +897,7 @@ impl IsWrongStart for DefGenericError {
 
 impl From<ObjectTypeError> for DefGenericError {
     fn from(err: ObjectTypeError) -> DefGenericError {
-        DefGenericError::ObjectTypeFailed(err)
+        DefGenericError::ObjectTypeFail(err)
     }
 }
 
@@ -856,30 +918,31 @@ impl Parse for DefGeneric {
         use HeadLex::*;
 
         tokens.guard(|iter| {
-            let name = HeadLex::expect_ident(&mut iter, MissingName)?;
+            let path = ItemPath::parse(iter)?;
 
-            if Assign.probe(&mut iter) {
-                // Either const or type assignment.
+            match path.into_single_item() {
+                Err(path) => Ok(DefGeneric::Path { path }),
+                Ok(name) => {
+                    if Assign.probe(iter) {
+                        // Either const or type assignment.
 
-                // Try to parse const assignment.
-                if let Ok(value) = Literal::expect(&mut iter, MissingValue) {
-                    return Ok(DefGeneric::AssignConstNamed { name, value });
-                }
-
-                // Try to parse object type.
-                match ObjectType::parse(&mut iter) {
-                    Ok(ty) => return Ok(DefGeneric::AssignTypeNamed { name, ty }),
-                    Err(e) => {
-                        if !e.is_wrong_start() {
-                            return Err(e.into());
+                        // Try to parse const assignment.
+                        if let Ok(value) = Literal::expect(iter, MissingValue) {
+                            Ok(DefGeneric::AssignConstNamed { name, value })
+                        } else {
+                            // Try to parse type assignment.
+                            ObjectType::parse_option(iter).map_inner_into(
+                                |ty| DefGeneric::AssignTypeNamed { name, ty },
+                                InvalidEnd,
+                            )
                         }
+                    } else {
+                        Ok(DefGeneric::Path {
+                            path: ItemPath::single(name),
+                        })
                     }
                 }
-
-                return Err(InvalidEnd);
             }
-
-            Ok(DefGeneric::Path { name })
         })
     }
 }
