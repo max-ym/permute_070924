@@ -85,6 +85,9 @@
 //! seemed unnecessary for the framework. We won't need to describe complex inter-object
 //! references for the data processing and transformations.
 
+// To suppress warnings during early development:
+#![allow(dead_code)]
+
 /// Module to register expected fields in the YAML file, and also describe the provided
 /// types and formats, so that framework can validate correctness and compatibility.
 pub mod domain;

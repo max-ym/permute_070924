@@ -107,6 +107,7 @@ impl<'lex, 'context> Guard<'lex> for LexIter<'lex> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ItemPathError {
     /// Item path is missing a name.
     MissingName,
@@ -185,7 +186,115 @@ pub struct Impl {
     ///     impl<T, U> EmploymentRecordTrait<T, U> for EmploymentRecord:
     /// #       ^^^^^^
     /// ```
-    generics: Vec<IdentName>,
+    generics: Vec<DeclGeneric>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ImplError {
+    /// Generic declaration is missing a name.
+    MissingName,
+
+    /// Generic declaration has an unparseable token.
+    UnknownToken(String),
+
+    /// Unexpected end of input.
+    UnexpectedEnd,
+
+    /// Generics error.
+    DeclGenerics(DeclGenericError),
+
+    /// Object type parsing has failed.
+    ObjectTypeFail(ObjectTypeError),
+
+    /// Item path parsing has failed.
+    ItemPathFail(ItemPathError),
+}
+
+impl From<DeclGenericError> for ImplError {
+    fn from(err: DeclGenericError) -> ImplError {
+        ImplError::DeclGenerics(err)
+    }
+}
+
+impl From<ObjectTypeError> for ImplError {
+    fn from(err: ObjectTypeError) -> ImplError {
+        ImplError::ObjectTypeFail(err)
+    }
+}
+
+impl From<ItemPathError> for ImplError {
+    fn from(err: ItemPathError) -> ImplError {
+        ImplError::ItemPathFail(err)
+    }
+}
+
+impl IsWrongStart for ImplError {
+    fn is_wrong_start(&self) -> bool {
+        matches!(self, ImplError::MissingName)
+    }
+}
+
+impl WrongStart for ImplError {
+    fn wrong_start(_: HeadLex) -> Self {
+        ImplError::MissingName
+    }
+}
+
+impl From<HeadError> for ImplError {
+    fn from(err: HeadError) -> ImplError {
+        match err {
+            HeadError::UnexpectedEnd => ImplError::UnexpectedEnd,
+            HeadError::UnknownToken(s) => ImplError::UnknownToken(s),
+        }
+    }
+}
+
+impl Parse for Impl {
+    type Error = ImplError;
+
+    fn parse(tokens: &mut LexIter) -> Result<Impl, ImplError> {
+        use HeadLex::*;
+        use ImplError as E;
+
+        tokens.guard(|iter| {
+            // Parse keyword.
+            Impl.expect_start::<E>(iter)?;
+
+            // Parse declared generics.
+            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+
+            // There are two possible orders of identifiers, where one is the type being implemented
+            // and the other is the type being implemented for. Sometimes, the order is reversed.
+            let first = ObjectType::parse(iter)?;
+
+            // Parse the kind of implementation.
+            let kind = if As.probe(iter) {
+                // Implementing an extension.
+                let name = HeadLex::expect_ident(iter, E::MissingName)?;
+                ImplKind::AsExt(name)
+            } else if For.probe(iter) {
+                // Implementing a trait.
+                ImplKind::Trait {
+                    name: ItemPath::parse(iter)?,
+                    generics: Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed(),
+                }
+            } else {
+                // Implementing new functions.
+                ImplKind::Simple
+            };
+
+            let (kind, impl_for) = {
+                let mut kind = kind;
+                let impl_for = kind.order_correction(first);
+                (kind, impl_for)
+            };
+            Ok(self::Impl {
+                impl_for,
+                kind,
+                generics,
+            })
+        })
+    }
 }
 
 /// Object type. Used for function arguments, return types.
@@ -229,6 +338,7 @@ pub enum ObjectType {
     Empty,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ObjectTypeError {
     InvalidStart(HeadLex),
 
@@ -368,7 +478,11 @@ pub enum ImplKind {
     /// ```yaml
     /// impl EmploymentRecordTrait for EmploymentRecord:
     /// ```
-    Trait(ItemPath),
+    Trait {
+        name: ItemPath,
+
+        generics: Vec<DeclGeneric>,
+    },
 
     /// Implement new functions for a type.
     /// ```yaml
@@ -378,37 +492,52 @@ pub enum ImplKind {
 }
 
 impl ImplKind {
-    // /// When parsing, there is two orders of identifiers, where one is the type being implemented
-    // /// and the other is the type being implemented for. Sometimes, the order is reversed.
-    // /// This function swaps the two identifiers when needed so that the first one is always the
-    // /// type being implemented and the second one is the type being implemented for.
-    // ///
-    // /// # Example
-    // /// Direct order: implemented for EmploymentRecord, implementing extension EmploymentRecordExt.
-    // /// ```yaml
-    // /// impl EmploymentRecord as EmploymentRecordExt:
-    // /// ```
-    // ///
-    // /// Reversed order: implemented for EmploymentRecord, implementing trait EmploymentRecordTrait.
-    // /// ```yaml
-    // /// impl EmploymentRecordTrait for EmploymentRecord:
-    // /// ```
-    // ///
-    // /// # Return
-    // /// Function returns the name of the type being implemented for.
-    // fn order_correction(&mut self, mut first_ident: IdentName) -> IdentName {
-    //     use std::mem::swap;
-    //     use ImplKind::*;
+    /// When parsing, there is two orders of identifiers, where one is the type being implemented
+    /// and the other is the type being implemented for. Sometimes, the order is reversed.
+    /// This function swaps the two identifiers when needed so that the first one is always the
+    /// type being implemented and the second one is the type being implemented for.
+    ///
+    /// # Example
+    /// Direct order: implemented for EmploymentRecord, implementing extension EmploymentRecordExt.
+    /// ```yaml
+    /// impl EmploymentRecord as EmploymentRecordExt:
+    /// ```
+    ///
+    /// Reversed order: implemented for EmploymentRecord, implementing trait EmploymentRecordTrait.
+    /// ```yaml
+    /// impl EmploymentRecordTrait for EmploymentRecord:
+    /// ```
+    ///
+    /// # Return
+    /// Function returns the name of the type being implemented for.
+    fn order_correction(&mut self, mut first_ty: ObjectType) -> ObjectType {
+        use std::mem::swap;
+        use ImplKind::*;
 
-    //     match self {
-    //         AsExt(_) => first_ident,
-    //         Trait(ident) => {
-    //             swap(ident, &mut first_ident);
-    //             first_ident
-    //         }
-    //         Simple => first_ident,
-    //     }
-    // }
+        match self {
+            AsExt(_) => first_ty,
+            Trait { name, generics } => {
+                match &mut first_ty {
+                    ObjectType::Func { .. } => {
+                        panic!("expected Trait or Concrete, got {first_ty:?}");
+                    }
+                    ObjectType::Concrete { name: first_name, generics: first_generics } => {
+                        // This was mistake
+                        swap(generics, first_generics);
+                        swap(name, first_name);
+                    }
+                    ObjectType::Trait { .. } => {
+                        panic!("unexpect 'dyn' for trait impl");
+                        // Dyn is used for trait objects, not for trait implementations.
+                    }
+                    ObjectType::Empty => {}
+                }
+
+                first_ty
+            }
+            Simple => first_ty,
+        }
+    }
 }
 
 /// Lexical element of `impl` or `fn` headers.
@@ -468,7 +597,7 @@ pub enum HeadLex {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct Number {
+pub struct Number {
     neg: bool,
     int: u64,
 }
@@ -565,7 +694,9 @@ impl HeadLex {
 
         if let Some(next) = iter.next() {
             if let Ok(next) = next.0 {
-                return next == *self;
+                if next == *self {
+                    return true;
+                }
             }
         }
 
@@ -665,6 +796,7 @@ impl HeadLex {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 /// Generic error for header parsing, that can occur in any specialized parser.
 pub enum HeadError {
     /// Generic error for unexpected end of input.
@@ -709,6 +841,7 @@ pub struct DeclGeneric {
     name: IdentName,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DeclGenericError {
     /// Generic declaration is missing a name.
     MissingName,
@@ -746,7 +879,6 @@ impl Parse for DeclGeneric {
 
     fn parse(tokens: &mut LexIter) -> Result<DeclGeneric, DeclGenericError> {
         use DeclGenericError::*;
-        use HeadLex::*;
 
         tokens.guard(|iter| {
             let name = HeadLex::expect_ident(iter, MissingName)?;
@@ -861,6 +993,7 @@ impl Literal {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DefGenericError {
     /// Generic definition is missing a name.
     MissingName,
@@ -950,4 +1083,85 @@ impl Parse for DefGeneric {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn i(input: &str) -> IdentName {
+        IdentName::try_from(input).unwrap()
+    }
+
+    #[test]
+    fn test_parse_item_path_single() {
+        let input = "MyType";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let path = ItemPath::parse(&mut iter).unwrap();
+        assert_eq!(path.items.len(), 1);
+        assert_eq!(path.items[0], i("MyType"));
+
+        assert!(path.into_single_item().is_ok());
+    }
+
+    #[test]
+    fn test_parse_item_path_many() {
+        let input = "MyType::Inner::Inner2";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let path = ItemPath::parse(&mut iter).unwrap();
+        assert_eq!(path.items.len(), 3);
+        assert_eq!(path.items[0], i("MyType"));
+        assert_eq!(path.items[1], i("Inner"));
+        assert_eq!(path.items[2], i("Inner2"));
+    }
+
+    #[test]
+    fn test_parse_item_path_error() {
+        let input = "MyType::";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let path = ItemPath::parse(&mut iter);
+        assert!(path.is_err());
+    }
+
+    #[test]
+    fn test_parse_impl_simple() {
+        let input = "impl MyType";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let imp = Impl::parse(&mut iter).unwrap();
+        assert_eq!(
+            imp.impl_for,
+            ObjectType::Concrete {
+                name: ItemPath::single(i("MyType")),
+                generics: vec![],
+            }
+        );
+        assert_eq!(imp.kind, ImplKind::Simple);
+    }
+
+    #[test]
+    fn test_parse_impl_trait() {
+        let input = "impl MyTrait for MyType";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let imp = Impl::parse(&mut iter).unwrap();
+        println!("{imp:#?}");
+        assert_eq!(
+            imp.impl_for,
+            ObjectType::Concrete {
+                name: ItemPath::single(i("MyType")),
+                generics: vec![],
+            }
+        );
+        assert_eq!(
+            imp.kind,
+            ImplKind::Trait {
+                name: ItemPath::single(i("MyTrait")),
+                generics: vec![],
+            }
+        );
+    }
 }
