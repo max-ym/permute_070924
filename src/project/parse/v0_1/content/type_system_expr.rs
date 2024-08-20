@@ -519,7 +519,7 @@ impl ImplKind {
             Trait { name, generics } => {
                 match &mut first_ty {
                     ObjectType::Func { .. } => {
-                        panic!("expected Trait or Concrete, got {first_ty:?}");
+                        panic!("expected Concrete, got {first_ty:?}");
                     }
                     ObjectType::Concrete { name: first_name, generics: first_generics } => {
                         // This was mistake
