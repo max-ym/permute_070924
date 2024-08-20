@@ -3,6 +3,8 @@ use smallvec::{smallvec, SmallVec};
 
 use super::*;
 
+use crate::error_expl::{Span, Spanned};
+
 /// Iterator over lexical elements.
 type LexIter<'a> = logos::SpannedIter<'a, HeadLex>;
 
@@ -22,6 +24,15 @@ trait Parse: Sized {
     type Error;
 
     fn parse(tokens: &mut LexIter) -> Result<Self, Self::Error>;
+
+    /// Parse with span.
+    fn parse_span(tokens: &mut LexIter) -> Result<Spanned<Self>, Self::Error> {
+        let start = tokens.span().start as _;
+        let v = Self::parse(tokens);
+        let end = tokens.span().end as _;
+        let span = Span::new(start, end).expect("iterator above should give valid span");
+        v.map(|v| span.with(v))
+    }
 }
 
 /// Optional parsing. This can be used when some part of the input is optional, to not
@@ -31,6 +42,15 @@ trait Parse: Sized {
 /// error type implements [IsWrongStart].
 trait ParseOption: Parse {
     fn parse_option(tokens: &mut LexIter) -> Option<Result<Self, Self::Error>>;
+
+    /// Parse with span.
+    fn parse_option_span(tokens: &mut LexIter) -> Option<Result<Spanned<Self>, Self::Error>> {
+        let start = tokens.span().start as _;
+        let v = Self::parse_option(tokens);
+        let end = tokens.span().end as _;
+        let span = Span::new(start, end).expect("iterator above should give valid span");
+        v.map(|v| v.map(|v| span.with(v)))
+    }
 }
 
 impl<E, P> ParseOption for P
@@ -66,6 +86,19 @@ where
         match self {
             Some(Ok(v)) => v,
             _ => P::default(),
+        }
+    }
+}
+
+impl<P, E> UnwrapOrDefaultParsed<Spanned<P>> for Option<Result<Spanned<P>, E>>
+where
+    E: IsWrongStart,
+    P: Parse<Error = E> + Default,
+{
+    fn unwrap_or_default_parsed(self) -> Spanned<P> {
+        match self {
+            Some(Ok(v)) => v,
+            _ => Spanned::default(),
         }
     }
 }
@@ -173,6 +206,9 @@ impl Parse for ItemPath {
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub struct Impl {
+    /// Span of the `impl` token.
+    impl_t: Span,
+
     /// An object for which this implementation is defined.
     impl_for: ObjectType,
 
@@ -186,7 +222,7 @@ pub struct Impl {
     ///     impl<T, U> EmploymentRecordTrait<T, U> for EmploymentRecord:
     /// #       ^^^^^^
     /// ```
-    generics: Vec<DeclGeneric>,
+    generics: Spanned<Vec<DeclGeneric>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -258,10 +294,10 @@ impl Parse for Impl {
 
         tokens.guard(|iter| {
             // Parse keyword.
-            Impl.expect_start::<E>(iter)?;
+            let impl_t = Impl.expect_start::<E>(iter)?;
 
             // Parse declared generics.
-            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+            let generics = Vec::<DeclGeneric>::parse_option_span(iter).unwrap_or_default_parsed();
 
             // There are two possible orders of identifiers, where one is the type being implemented
             // and the other is the type being implemented for. Sometimes, the order is reversed.
@@ -270,13 +306,18 @@ impl Parse for Impl {
             // Parse the kind of implementation.
             let kind = if As.probe(iter) {
                 // Implementing an extension.
-                let name = HeadLex::expect_ident(iter, E::MissingName)?;
-                ImplKind::AsExt(name)
+                let ext = HeadLex::expect_ident(iter, E::MissingName)?;
+                ImplKind::AsExt {
+                    ext,
+                    as_t: iter.span().into(),
+                }
             } else if For.probe(iter) {
                 // Implementing a trait.
                 ImplKind::Trait {
                     name: ItemPath::parse(iter)?,
-                    generics: Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed(),
+                    generics: Vec::<DeclGeneric>::parse_option_span(iter)
+                        .unwrap_or_default_parsed(),
+                    for_t: iter.span().into(),
                 }
             } else {
                 // Implementing new functions.
@@ -289,6 +330,7 @@ impl Parse for Impl {
                 (kind, impl_for)
             };
             Ok(self::Impl {
+                impl_t,
                 impl_for,
                 kind,
                 generics,
@@ -303,10 +345,10 @@ pub enum ObjectType {
     /// Concrete type with optional generics.
     Concrete {
         /// Name of the type.
-        name: ItemPath,
+        name: Spanned<ItemPath>,
 
         /// Generics of the type. Can be empty.
-        generics: Vec<DeclGeneric>,
+        generics: Spanned<Vec<DeclGeneric>>,
     },
 
     /// Dynamic trait type with optional generics.
@@ -315,13 +357,16 @@ pub enum ObjectType {
         name: ItemPath,
 
         /// Generics of the trait. Can be empty.
-        generics: Vec<DeclGeneric>,
+        generics: Spanned<Vec<DeclGeneric>>,
     },
 
     /// Function type with optional generics.
     Func {
+        /// Span of the `fn` keyword.
+        fn_t: Span,
+
         /// Generics of the function. Can be empty.
-        generics: Vec<DeclGeneric>,
+        generics: Spanned<Vec<DeclGeneric>>,
 
         /// Argument types of the function.
         args: Vec<ObjectType>,
@@ -405,8 +450,8 @@ impl Parse for ObjectType {
 impl ObjectType {
     fn parse_concrete(tokens: &mut LexIter) -> Result<ObjectType, ObjectTypeError> {
         tokens.guard(|iter| {
-            let name = ItemPath::parse(iter)?;
-            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+            let name = ItemPath::parse_span(iter)?;
+            let generics = Vec::<DeclGeneric>::parse_option_span(iter).unwrap_or_default_parsed();
 
             Ok(ObjectType::Concrete { name, generics })
         })
@@ -421,7 +466,7 @@ impl ObjectType {
             Dyn.expect_start::<E>(iter)?;
 
             let name = ItemPath::parse(iter)?;
-            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+            let generics = Vec::<DeclGeneric>::parse_option_span(iter).unwrap_or_default_parsed();
 
             Ok(ObjectType::Trait { name, generics })
         })
@@ -433,9 +478,9 @@ impl ObjectType {
 
         tokens.guard(|iter| {
             // Function type starts with `fn` keyword.
-            Fn.expect_start::<E>(iter)?;
+            let fn_t = Fn.expect_start::<E>(iter)?;
 
-            let generics = Vec::<DeclGeneric>::parse_option(iter).unwrap_or_default_parsed();
+            let generics = Vec::<DeclGeneric>::parse_option_span(iter).unwrap_or_default_parsed();
 
             // Parse arguments.
             OpenParen.expect(iter, E::UnexpectedEnd)?; // TODO normal errors here and below
@@ -457,6 +502,7 @@ impl ObjectType {
             };
 
             Ok(ObjectType::Func {
+                fn_t,
                 generics,
                 args: args.into_vec(),
                 ret: ret.into_vec(),
@@ -472,16 +518,27 @@ pub enum ImplKind {
     /// ```yaml
     /// impl EmploymentRecord as EmploymentRecordExt:
     /// ```
-    AsExt(IdentName),
+    AsExt {
+        /// Name of the extension.
+        ext: Spanned<IdentName>,
+
+        /// Span of the `as` keyword.
+        as_t: Span,
+    },
 
     /// Implement a new trait for a type.
     /// ```yaml
     /// impl EmploymentRecordTrait for EmploymentRecord:
     /// ```
     Trait {
+        /// Name of the trait. Path if specified.
         name: ItemPath,
 
-        generics: Vec<DeclGeneric>,
+        /// Generics of the trait. Can be empty.
+        generics: Spanned<Vec<DeclGeneric>>,
+
+        /// Span of the `for` keyword.
+        for_t: Span,
     },
 
     /// Implement new functions for a type.
@@ -515,13 +572,16 @@ impl ImplKind {
         use ImplKind::*;
 
         match self {
-            AsExt(_) => first_ty,
-            Trait { name, generics } => {
+            AsExt { .. } => first_ty,
+            Trait { name, generics, .. } => {
                 match &mut first_ty {
                     ObjectType::Func { .. } => {
                         panic!("expected Concrete, got {first_ty:?}");
                     }
-                    ObjectType::Concrete { name: first_name, generics: first_generics } => {
+                    ObjectType::Concrete {
+                        name: first_name,
+                        generics: first_generics,
+                    } => {
                         // This was mistake
                         swap(generics, first_generics);
                         swap(name, first_name);
@@ -648,7 +708,7 @@ fn lex_to_str_lit(lex: &mut logos::Lexer<HeadLex>) -> String {
 
 impl HeadLex {
     /// Expect next token to be the same as this one.
-    fn expect<E: From<HeadError>>(&self, iter: &mut LexIter, err: E) -> Result<(), E> {
+    fn expect<E: From<HeadError>>(&self, iter: &mut LexIter, err: E) -> Result<Span, E> {
         self.expect_peek(iter).map_err(|e| match e {
             Ok(_) => err,
             Err(e) => e.into(),
@@ -658,16 +718,16 @@ impl HeadLex {
     /// Expect next token to be the same as this one.
     /// If not, return the next token that was instead. If there is no next token, return [HeadError].
     /// If next token is the same, advance the iterator.
-    fn expect_peek(&self, iter: &mut LexIter) -> Result<(), Result<HeadLex, HeadError>> {
+    fn expect_peek(&self, iter: &mut LexIter) -> Result<Span, Result<Spanned<HeadLex>, HeadError>> {
         use HeadError::*;
 
         iter.guard(|iter| {
-            if let Some(next) = iter.next() {
-                if let Ok(next) = next.0 {
+            if let Some((next, range)) = iter.next() {
+                if let Ok(next) = next {
                     if next == *self {
-                        Ok(())
+                        Ok(range.into())
                     } else {
-                        Err(Ok(next))
+                        Err(Ok(Span::from(range).with(next)))
                     }
                 } else {
                     Err(Err(UnknownToken(iter.slice().to_owned()).into()))
@@ -681,36 +741,44 @@ impl HeadLex {
     /// Expect next token to be the same as this one. If not, return the next token that was instead.
     /// This function wraps the error into a [WrongStart] error. Which may be useful
     /// to reduce boilerplate in probing at the start of the parser.
-    fn expect_start<E: WrongStart>(&self, iter: &mut LexIter) -> Result<(), E> {
+    fn expect_start<E: WrongStart>(&self, iter: &mut LexIter) -> Result<Span, E> {
         self.expect_peek(iter).map_err(|e| match e {
-            Ok(t) => WrongStart::wrong_start(t),
+            Ok(t) => WrongStart::wrong_start(t.into_inner()),
             Err(e) => e.into(),
         })
     }
 
     /// Check if next token is the same as this one. If so, advance the iterator and return true.
     fn probe(&self, iter: &mut LexIter) -> bool {
+        self.spanprobe(iter).is_some()
+    }
+
+    /// Check if next token is the same as this one. If so, advance the iterator and return [Span].
+    fn spanprobe(&self, iter: &mut LexIter) -> Option<Span> {
         let backup = iter.clone();
 
-        if let Some(next) = iter.next() {
-            if let Ok(next) = next.0 {
+        if let Some((next, range)) = iter.next() {
+            if let Ok(next) = next {
                 if next == *self {
-                    return true;
+                    return Some(Span::from(range));
                 }
             }
         }
 
         *iter = backup;
-        false
+        None
     }
 
     /// Expect next token to be an identifier.
-    fn expect_ident<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<IdentName, E> {
+    fn expect_ident<E: From<HeadError>>(
+        iter: &mut LexIter,
+        err: E,
+    ) -> Result<Spanned<IdentName>, E> {
         use HeadError::*;
 
-        if let Some(next) = iter.next() {
-            if let Ok(HeadLex::Ident(ident)) = next.0 {
-                Ok(ident)
+        if let Some((next, range)) = iter.next() {
+            if let Ok(HeadLex::Ident(ident)) = next {
+                Ok(Span::from(range).with(ident))
             } else {
                 Err(err)
             }
@@ -720,12 +788,15 @@ impl HeadLex {
     }
 
     /// Expect next token to be a string literal.
-    fn expect_str_lit<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<HeadLex, E> {
+    fn expect_str_lit<E: From<HeadError>>(
+        iter: &mut LexIter,
+        err: E,
+    ) -> Result<Spanned<HeadLex>, E> {
         use HeadError::*;
 
-        if let Some(next) = iter.next() {
-            if let Ok(HeadLex::StrLit(s)) = next.0 {
-                Ok(HeadLex::StrLit(s))
+        if let Some((next, range)) = iter.next() {
+            if let Ok(HeadLex::StrLit(s)) = next {
+                Ok(Span::from(range).with(HeadLex::StrLit(s)))
             } else {
                 Err(err)
             }
@@ -735,12 +806,15 @@ impl HeadLex {
     }
 
     /// Expect next token to be a number literal.
-    fn expect_num_lit<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<HeadLex, E> {
+    fn expect_num_lit<E: From<HeadError>>(
+        iter: &mut LexIter,
+        err: E,
+    ) -> Result<Spanned<HeadLex>, E> {
         use HeadError::*;
 
-        if let Some(next) = iter.next() {
-            if let Ok(HeadLex::NumLit(n)) = next.0 {
-                Ok(HeadLex::NumLit(n))
+        if let Some((next, range)) = iter.next() {
+            if let Ok(HeadLex::NumLit(n)) = next {
+                Ok(Span::from(range).with(HeadLex::NumLit(n)))
             } else {
                 Err(err)
             }
@@ -750,13 +824,13 @@ impl HeadLex {
     }
 
     /// Expect next token to be a literal.
-    fn expect_lit<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<HeadLex, E> {
+    fn expect_lit<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<Spanned<HeadLex>, E> {
         use HeadError::*;
 
-        if let Some(next) = iter.next() {
-            if let Ok(next) = next.0 {
+        if let Some((next, range)) = iter.next() {
+            if let Ok(next) = next {
                 match next {
-                    HeadLex::StrLit(_) | HeadLex::NumLit(_) => Ok(next),
+                    HeadLex::StrLit(_) | HeadLex::NumLit(_) => Ok(Span::from(range).with(next)),
                     _ => Err(err),
                 }
             } else {
@@ -838,7 +912,7 @@ pub enum ImplLexError {
 /// #   ^^^                      ^^^
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DeclGeneric {
-    name: IdentName,
+    name: Spanned<IdentName>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -926,11 +1000,14 @@ pub enum DefGeneric {
     /// #         ^^^^^^^^^^^^^^^
     /// ```
     AssignConstNamed {
+        /// Span of the `=` token.
+        assign_t: Span,
+
         /// Name of the generic parameter.
-        name: IdentName,
+        name: Spanned<IdentName>,
 
         /// Value of the generic parameter assigned.
-        value: Literal,
+        value: Spanned<Literal>,
     },
 
     /// Assigning type to a named generic.
@@ -942,8 +1019,11 @@ pub enum DefGeneric {
     /// ```
     ///
     AssignTypeNamed {
+        /// Span of the `=` token.
+        assign_t: Span,
+
         /// Name of the generic parameter.
-        name: IdentName,
+        name: Spanned<IdentName>,
 
         /// Type of the generic parameter assigned.
         ty: ObjectType,
@@ -974,14 +1054,16 @@ impl From<Literal> for HeadLex {
 }
 
 impl Literal {
-    fn expect<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<Literal, E> {
+    fn expect<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<Spanned<Literal>, E> {
         use HeadError::*;
+        use Literal::*;
 
-        if let Some(next) = iter.next() {
-            if let Ok(next) = next.0 {
+        if let Some((next, range)) = iter.next() {
+            let span = Span::from(range);
+            if let Ok(next) = next {
                 match next {
-                    HeadLex::StrLit(s) => Ok(Literal::Str(s)),
-                    HeadLex::NumLit(n) => Ok(Literal::Num(n)),
+                    HeadLex::StrLit(s) => Ok(span.with(Str(s))),
+                    HeadLex::NumLit(n) => Ok(span.with(Num(n))),
                     _ => Err(err),
                 }
             } else {
@@ -1056,16 +1138,20 @@ impl Parse for DefGeneric {
             match path.into_single_item() {
                 Err(path) => Ok(DefGeneric::Path { path }),
                 Ok(name) => {
-                    if Assign.probe(iter) {
+                    if let Some(assign_t) = Assign.spanprobe(iter) {
                         // Either const or type assignment.
 
                         // Try to parse const assignment.
                         if let Ok(value) = Literal::expect(iter, MissingValue) {
-                            Ok(DefGeneric::AssignConstNamed { name, value })
+                            Ok(DefGeneric::AssignConstNamed {
+                                assign_t,
+                                name,
+                                value,
+                            })
                         } else {
                             // Try to parse type assignment.
                             ObjectType::parse_option(iter).map_inner_into(
-                                |ty| DefGeneric::AssignTypeNamed { name, ty },
+                                |ty| DefGeneric::AssignTypeNamed { assign_t, name, ty },
                                 InvalidEnd,
                             )
                         }
@@ -1096,7 +1182,7 @@ mod tests {
 
         let path = ItemPath::parse(&mut iter).unwrap();
         assert_eq!(path.items.len(), 1);
-        assert_eq!(path.items[0], i("MyType"));
+        assert_eq!(*path.items[0], i("MyType"));
 
         assert!(path.into_single_item().is_ok());
     }
@@ -1109,9 +1195,9 @@ mod tests {
 
         let path = ItemPath::parse(&mut iter).unwrap();
         assert_eq!(path.items.len(), 3);
-        assert_eq!(path.items[0], i("MyType"));
-        assert_eq!(path.items[1], i("Inner"));
-        assert_eq!(path.items[2], i("Inner2"));
+        assert_eq!(*path.items[0], i("MyType"));
+        assert_eq!(*path.items[1], i("Inner"));
+        assert_eq!(*path.items[2], i("Inner2"));
     }
 
     #[test]
@@ -1131,13 +1217,14 @@ mod tests {
         let mut iter = lex.spanned();
 
         let imp = Impl::parse(&mut iter).unwrap();
+        let ObjectType::Concrete { name, generics } = imp.impl_for else {
+            panic!("expected ObjectType::Concrete, got {:?}", imp.impl_for);
+        };
         assert_eq!(
-            imp.impl_for,
-            ObjectType::Concrete {
-                name: ItemPath::single(i("MyType")),
-                generics: vec![],
-            }
+            name.into_inner().into_single_item().unwrap().into_inner(),
+            i("MyType")
         );
+        assert!(generics.is_empty());
         assert_eq!(imp.kind, ImplKind::Simple);
     }
 
@@ -1149,19 +1236,24 @@ mod tests {
 
         let imp = Impl::parse(&mut iter).unwrap();
         println!("{imp:#?}");
+        
+        let ObjectType::Concrete { name, generics } = imp.impl_for else {
+            panic!("expected ObjectType::Concrete, got {:?}", imp.impl_for);
+        };
+
         assert_eq!(
-            imp.impl_for,
-            ObjectType::Concrete {
-                name: ItemPath::single(i("MyType")),
-                generics: vec![],
-            }
+            name.into_inner().into_single_item().unwrap().into_inner(),
+            i("MyType")
         );
-        assert_eq!(
-            imp.kind,
-            ImplKind::Trait {
-                name: ItemPath::single(i("MyTrait")),
-                generics: vec![],
+        assert!(generics.is_empty());
+
+        match imp.kind {
+            ImplKind::Trait { name, generics, .. } => {
+                assert_eq!(name.items.len(), 1);
+                assert_eq!(*name.items[0], i("MyTrait"));
+                assert!(generics.is_empty());
             }
-        );
+            _ => panic!("expected ImplKind::Trait, got {:?}", imp.kind),
+        }
     }
 }

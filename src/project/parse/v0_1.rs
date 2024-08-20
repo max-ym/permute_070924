@@ -1,6 +1,8 @@
 use serde::{Deserialize, Deserializer};
 use smallvec::{SmallVec, smallvec};
 
+use crate::error_expl::Spanned;
+
 /// Parsing and basic validation of contents of the Permute YAML file, excluding the header.
 pub mod content;
 
@@ -197,12 +199,12 @@ impl TryFrom<&str> for IdentName {
 /// Path to an item.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ItemPath {
-    items: SmallVec<[IdentName; 1]>,
+    items: SmallVec<[Spanned<IdentName>; 1]>,
 }
 
 impl ItemPath {
     /// Whether the path is a single item.
-    pub fn into_single_item(self) -> Result<IdentName, Self> {
+    pub fn into_single_item(self) -> Result<Spanned<IdentName>, Self> {
         if self.items.len() == 1 {
             Ok(self.items.into_iter().next().unwrap())
         } else {
@@ -210,7 +212,7 @@ impl ItemPath {
         }
     }
 
-    pub fn single(ident: IdentName) -> Self {
+    pub fn single(ident: Spanned<IdentName>) -> Self {
         Self {
             items: smallvec![ident],
         }
