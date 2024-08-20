@@ -198,10 +198,13 @@ pub enum ContextBuildError {
     AdditionalNotOverlapsImportant,
 }
 
+/// Position in the source text. 32 bits should be enough for everyone.
+type Pos = u32;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Span {
-    start: usize,
-    end: usize,
+    start: Pos,
+    end: Pos,
 }
 
 #[derive(Debug, Clone, Copy, thiserror::Error)]
@@ -209,7 +212,7 @@ pub struct Span {
 pub struct InvalidSpan;
 
 impl Span {
-    pub fn new(start: usize, end: usize) -> Result<Self, InvalidSpan> {
+    pub fn new(start: Pos, end: Pos) -> Result<Self, InvalidSpan> {
         if start > end {
             return Err(InvalidSpan);
         }
