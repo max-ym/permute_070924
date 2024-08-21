@@ -385,8 +385,6 @@ pub enum ObjectType {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ObjectTypeError {
-    InvalidStart(HeadLex),
-
     /// Generic type has an unparseable token.
     UnknownToken(String),
 
@@ -403,13 +401,16 @@ impl From<ItemPathError> for ObjectTypeError {
 
 impl IsWrongStart for ObjectTypeError {
     fn is_wrong_start(&self) -> bool {
-        matches!(self, ObjectTypeError::InvalidStart(_))
+        matches!(
+            self,
+            ObjectTypeError::ItemPathFailure(ItemPathError::MissingName)
+        )
     }
 }
 
 impl WrongStart for ObjectTypeError {
-    fn wrong_start(wrong_token: HeadLex) -> Self {
-        ObjectTypeError::InvalidStart(wrong_token)
+    fn wrong_start(_: HeadLex) -> Self {
+        ObjectTypeError::ItemPathFailure(ItemPathError::MissingName)
     }
 }
 
@@ -426,14 +427,15 @@ impl Parse for ObjectType {
     type Error = ObjectTypeError;
 
     fn parse(tokens: &mut LexIter) -> Result<ObjectType, ObjectTypeError> {
-        use ObjectTypeError as E;
-
         macro_rules! attempt {
             ($f:ident) => {
                 match ObjectType::$f(tokens) {
                     Ok(t) => return Ok(t),
-                    Err(E::InvalidStart(_)) => {}
-                    Err(e) => return Err(e),
+                    Err(e) => {
+                        if !e.is_wrong_start() {
+                            return Err(e);
+                        }
+                    }
                 }
             };
         }
@@ -990,6 +992,7 @@ impl Parse for Vec<DeclGeneric> {
 /// type: FixedPoint<Precision = 1>
 /// #               ^^^^^^^^^^^^^^^
 /// ```
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DefGeneric {
     /// Assigning value to a named const generic.
     ///
@@ -1055,31 +1058,41 @@ impl From<Literal> for HeadLex {
 
 impl Literal {
     fn expect<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<Spanned<Literal>, E> {
+        match Self::spanprobe(iter) {
+            Some(Ok(v)) => Ok(v),
+            Some(Err(e)) => Err(e),
+            None => Err(err),
+        }
+    }
+
+    fn spanprobe<E: From<HeadError>>(iter: &mut LexIter) -> Option<Result<Spanned<Literal>, E>> {
         use HeadError::*;
         use Literal::*;
+
+        let backup = iter.clone();
 
         if let Some((next, range)) = iter.next() {
             let span = Span::from(range);
             if let Ok(next) = next {
                 match next {
-                    HeadLex::StrLit(s) => Ok(span.with(Str(s))),
-                    HeadLex::NumLit(n) => Ok(span.with(Num(n))),
-                    _ => Err(err),
+                    HeadLex::StrLit(s) => Some(Ok(span.with(Str(s)))),
+                    HeadLex::NumLit(n) => Some(Ok(span.with(Num(n)))),
+                    _ => {
+                        *iter = backup;
+                        None
+                    }
                 }
             } else {
-                Err(UnknownToken(iter.slice().to_owned()).into())
+                Some(Err(UnknownToken(iter.slice().to_owned()).into()))
             }
         } else {
-            Err(UnexpectedEnd.into())
+            Some(Err(UnexpectedEnd.into()))
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DefGenericError {
-    /// Generic definition is missing a name.
-    MissingName,
-
     /// Generic definition is missing a value in opened assignment.
     MissingValue,
 
@@ -1106,7 +1119,16 @@ impl From<ItemPathError> for DefGenericError {
 
 impl IsWrongStart for DefGenericError {
     fn is_wrong_start(&self) -> bool {
-        matches!(self, DefGenericError::MissingName)
+        matches!(
+            self,
+            DefGenericError::ItemPathFail(ItemPathError::MissingName)
+        )
+    }
+}
+
+impl WrongStart for DefGenericError {
+    fn wrong_start(_: HeadLex) -> Self {
+        DefGenericError::ItemPathFail(ItemPathError::MissingName)
     }
 }
 
@@ -1130,6 +1152,7 @@ impl Parse for DefGeneric {
 
     fn parse(tokens: &mut LexIter) -> Result<DefGeneric, DefGenericError> {
         use DefGenericError::*;
+        use DefGenericError as E;
         use HeadLex::*;
 
         tokens.guard(|iter| {
@@ -1142,11 +1165,11 @@ impl Parse for DefGeneric {
                         // Either const or type assignment.
 
                         // Try to parse const assignment.
-                        if let Ok(value) = Literal::expect(iter, MissingValue) {
+                        if let Some(value) = Literal::spanprobe::<E>(iter) {
                             Ok(DefGeneric::AssignConstNamed {
                                 assign_t,
                                 name,
-                                value,
+                                value: value?,
                             })
                         } else {
                             // Try to parse type assignment.
@@ -1162,6 +1185,22 @@ impl Parse for DefGeneric {
                     }
                 }
             }
+        })
+    }
+}
+
+impl Parse for Vec<DefGeneric> {
+    type Error = DefGenericError;
+
+    fn parse(tokens: &mut LexIter) -> Result<Vec<DefGeneric>, DefGenericError> {
+        use DefGenericError as E;
+        use HeadLex::*;
+
+        tokens.guard(|iter| {
+            OpenAngle.expect_start::<E>(iter)?;
+            let generics: SmallVec<[_; 8]> = HeadLex::comma_smallvec(iter, DefGeneric::parse)?;
+            CloseAngle.expect(iter, E::UnexpectedEnd)?;
+            Ok(generics.into_vec())
         })
     }
 }
@@ -1236,7 +1275,7 @@ mod tests {
 
         let imp = Impl::parse(&mut iter).unwrap();
         println!("{imp:#?}");
-        
+
         let ObjectType::Concrete { name, generics } = imp.impl_for else {
             panic!("expected ObjectType::Concrete, got {:?}", imp.impl_for);
         };
@@ -1255,5 +1294,141 @@ mod tests {
             }
             _ => panic!("expected ImplKind::Trait, got {:?}", imp.kind),
         }
+    }
+
+    #[test]
+    fn test_parse_generics() {
+        let input = "impl<T, U> MyTrait<T> for MyType<U>";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let imp = Impl::parse(&mut iter).unwrap();
+        let ObjectType::Concrete { name, generics } = imp.impl_for else {
+            panic!("expected ObjectType::Concrete, got {:?}", imp.impl_for);
+        };
+
+        assert_eq!(
+            name.into_inner().into_single_item().unwrap().into_inner(),
+            i("MyType")
+        );
+        assert_eq!(generics.len(), 1);
+        assert_eq!(*generics[0].name, i("U"));
+
+        match imp.kind {
+            ImplKind::Trait { name, generics, .. } => {
+                assert_eq!(name.items.len(), 1);
+                assert_eq!(*name.items[0], i("MyTrait"));
+                assert_eq!(generics.len(), 1);
+                assert_eq!(*generics[0].name, i("T"));
+            }
+            _ => panic!("expected ImplKind::Trait, got {:?}", imp.kind),
+        }
+
+        let generics = imp.generics;
+        assert_eq!(generics.len(), 2);
+        assert_eq!(*generics[0].name, i("T"));
+        assert_eq!(*generics[1].name, i("U"));
+    }
+
+    #[test]
+    fn generics_parser() {
+        let input = "<T, U>";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let generics = Vec::<DeclGeneric>::parse(&mut iter).unwrap();
+        assert_eq!(generics.len(), 2);
+        assert_eq!(*generics[0].name, i("T"));
+        assert_eq!(*generics[1].name, i("U"));
+    }
+
+    #[test]
+    fn generics_def_parser() {
+        let input = "<T = 1, U = String>";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let generics = Vec::<DefGeneric>::parse(&mut iter).unwrap();
+        assert_eq!(generics.len(), 2);
+
+        match &generics[0] {
+            DefGeneric::AssignConstNamed { name, value, .. } => {
+                assert_eq!(**name, i("T"));
+                assert_eq!(**value, Literal::Num(Number { neg: false, int: 1 }));
+            }
+            _ => panic!(
+                "expected DefGeneric::AssignConstNamed, got {:?}",
+                generics[0]
+            ),
+        }
+
+        match &generics[1] {
+            DefGeneric::AssignTypeNamed { name, ty, .. } => {
+                assert_eq!(**name, i("U"));
+                assert_eq!(
+                    ty,
+                    &ObjectType::Concrete {
+                        name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("String")))),
+                        generics: Span::NONE.with(vec![]),
+                    }
+                );
+            }
+            _ => panic!(
+                "expected DefGeneric::AssignTypeNamed, got {:?}",
+                generics[1]
+            ),
+        }
+    }
+
+    #[test]
+    fn literal() {
+        let input = "\"hello\"";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let lit = Literal::expect(&mut iter, HeadError::UnexpectedEnd).unwrap();
+        assert_eq!(lit.into_inner(), Literal::Str("hello".to_string()));
+
+        let input = "123";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let lit = Literal::expect(&mut iter, HeadError::UnexpectedEnd).unwrap();
+        assert_eq!(
+            lit.into_inner(),
+            Literal::Num(Number {
+                neg: false,
+                int: 123
+            })
+        );
+    }
+
+    #[test]
+    fn lit_num_negative() {
+        let input = "-123";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let lit = Literal::expect(&mut iter, HeadError::UnexpectedEnd).unwrap();
+        assert_eq!(
+            lit.into_inner(),
+            Literal::Num(Number {
+                neg: true,
+                int: 123
+            })
+        );
+    }
+
+    #[test]
+    fn lit_str_escaped() {
+        let input = r#""hello \"world\"""#;
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let lit = Literal::expect(&mut iter, HeadError::UnexpectedEnd).unwrap();
+        assert_eq!(
+            lit.into_inner(),
+            Literal::Str("hello \"world\"".to_string())
+        );
     }
 }

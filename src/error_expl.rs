@@ -281,6 +281,8 @@ where
 }
 
 impl Span {
+    pub const NONE: Self = Self { start: 0, end: 0 };
+
     pub fn new(start: Pos, end: Pos) -> Result<Self, InvalidSpan> {
         if start > end {
             return Err(InvalidSpan);
