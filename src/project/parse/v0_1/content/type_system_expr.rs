@@ -789,60 +789,6 @@ impl HeadLex {
         }
     }
 
-    /// Expect next token to be a string literal.
-    fn expect_str_lit<E: From<HeadError>>(
-        iter: &mut LexIter,
-        err: E,
-    ) -> Result<Spanned<HeadLex>, E> {
-        use HeadError::*;
-
-        if let Some((next, range)) = iter.next() {
-            if let Ok(HeadLex::StrLit(s)) = next {
-                Ok(Span::from(range).with(HeadLex::StrLit(s)))
-            } else {
-                Err(err)
-            }
-        } else {
-            Err(UnexpectedEnd.into())
-        }
-    }
-
-    /// Expect next token to be a number literal.
-    fn expect_num_lit<E: From<HeadError>>(
-        iter: &mut LexIter,
-        err: E,
-    ) -> Result<Spanned<HeadLex>, E> {
-        use HeadError::*;
-
-        if let Some((next, range)) = iter.next() {
-            if let Ok(HeadLex::NumLit(n)) = next {
-                Ok(Span::from(range).with(HeadLex::NumLit(n)))
-            } else {
-                Err(err)
-            }
-        } else {
-            Err(UnexpectedEnd.into())
-        }
-    }
-
-    /// Expect next token to be a literal.
-    fn expect_lit<E: From<HeadError>>(iter: &mut LexIter, err: E) -> Result<Spanned<HeadLex>, E> {
-        use HeadError::*;
-
-        if let Some((next, range)) = iter.next() {
-            if let Ok(next) = next {
-                match next {
-                    HeadLex::StrLit(_) | HeadLex::NumLit(_) => Ok(Span::from(range).with(next)),
-                    _ => Err(err),
-                }
-            } else {
-                Err(UnknownToken(iter.slice().to_owned()).into())
-            }
-        } else {
-            Err(UnexpectedEnd.into())
-        }
-    }
-
     /// Parse a list of elements separated by commas into a small vector.
     /// Stop when a wrong start is encountered or next token is not a comma.
     fn comma_smallvec<const N: usize, T, E: From<HeadError> + IsWrongStart>(
@@ -1430,5 +1376,85 @@ mod tests {
             lit.into_inner(),
             Literal::Str("hello \"world\"".to_string())
         );
+    }
+
+    #[test]
+    fn parse_as_ext() {
+        let input = "impl MyType as MyTypeExt";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let imp = Impl::parse(&mut iter).unwrap();
+        let ObjectType::Concrete { name, generics } = imp.impl_for else {
+            panic!("expected ObjectType::Concrete, got {:?}", imp.impl_for);
+        };
+        assert_eq!(
+            name.into_inner().into_single_item().unwrap().into_inner(),
+            i("MyType")
+        );
+        assert!(generics.is_empty());
+        match imp.kind {
+            ImplKind::AsExt { ext, .. } => {
+                assert_eq!(ext.into_inner(), i("MyTypeExt"));
+            }
+            _ => panic!("expected ImplKind::AsExt, got {:?}", imp.kind),
+        }
+    }
+
+    #[test]
+    fn fn_trait() {
+        let input = "fn<T>(arg1, arg2) -> T";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let ty = ObjectType::parse(&mut iter).unwrap();
+        match ty {
+            ObjectType::Func {
+                generics,
+                args,
+                ret,
+                ..
+            } => {
+                assert_eq!(generics.len(), 1);
+                assert_eq!(*generics[0].name, i("T"));
+                assert_eq!(args.len(), 2);
+                assert_eq!(ret.len(), 1);
+                assert_eq!(ret[0], ObjectType::Concrete {
+                    name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("T")))),
+                    generics: Span::NONE.with(vec![]),
+                });
+            }
+            _ => panic!("expected ObjectType::Func, got {:?}", ty),
+        }
+    }
+
+    #[test]
+    fn fn_trait_return_tuple() {
+        let input = "fn() -> (T, U)";
+        let lex = HeadLex::lexer(input);
+        let mut iter = lex.spanned();
+
+        let ty = ObjectType::parse(&mut iter).unwrap();
+        match ty {
+            ObjectType::Func {
+                generics,
+                args,
+                ret,
+                ..
+            } => {
+                assert!(generics.is_empty());
+                assert!(args.is_empty());
+                assert_eq!(ret.len(), 2);
+                assert_eq!(ret[0], ObjectType::Concrete {
+                    name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("T")))),
+                    generics: Span::NONE.with(vec![]),
+                });
+                assert_eq!(ret[1], ObjectType::Concrete {
+                    name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("U")))),
+                    generics: Span::NONE.with(vec![]),
+                });
+            }
+            _ => panic!("expected ObjectType::Func, got {:?}", ty),
+        }
     }
 }
