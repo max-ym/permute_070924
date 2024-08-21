@@ -1097,8 +1097,8 @@ impl Parse for DefGeneric {
     type Error = DefGenericError;
 
     fn parse(tokens: &mut LexIter) -> Result<DefGeneric, DefGenericError> {
-        use DefGenericError::*;
         use DefGenericError as E;
+        use DefGenericError::*;
         use HeadLex::*;
 
         tokens.guard(|iter| {
@@ -1290,12 +1290,12 @@ mod tests {
 
     #[test]
     fn generics_def_parser() {
-        let input = "<T = 1, U = String>";
+        let input = "<T = 1, U = String, V = some::Item, W>";
         let lex = HeadLex::lexer(input);
         let mut iter = lex.spanned();
 
         let generics = Vec::<DefGeneric>::parse(&mut iter).unwrap();
-        assert_eq!(generics.len(), 2);
+        assert_eq!(generics.len(), 4);
 
         match &generics[0] {
             DefGeneric::AssignConstNamed { name, value, .. } => {
@@ -1323,6 +1323,33 @@ mod tests {
                 "expected DefGeneric::AssignTypeNamed, got {:?}",
                 generics[1]
             ),
+        }
+
+        match &generics[2] {
+            DefGeneric::AssignTypeNamed { name, ty, .. } => {
+                assert_eq!(**name, i("V"));
+                assert_eq!(
+                    ty,
+                    &ObjectType::Concrete {
+                        name: Span::NONE.with(ItemPath::from(
+                            [Span::NONE.with(i("some")), Span::NONE.with(i("Item"))].as_ref()
+                        )),
+                        generics: Span::NONE.with(vec![]),
+                    }
+                );
+            }
+            _ => panic!(
+                "expected DefGeneric::AssignTypeNamed, got {:?}",
+                generics[2]
+            ),
+        }
+
+        match &generics[3] {
+            DefGeneric::Path { path } => {
+                assert_eq!(path.items.len(), 1);
+                assert_eq!(*path.items[0], i("W"));
+            }
+            _ => panic!("expected DefGeneric::Path, got {:?}", generics[3]),
         }
     }
 
@@ -1419,10 +1446,13 @@ mod tests {
                 assert_eq!(*generics[0].name, i("T"));
                 assert_eq!(args.len(), 2);
                 assert_eq!(ret.len(), 1);
-                assert_eq!(ret[0], ObjectType::Concrete {
-                    name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("T")))),
-                    generics: Span::NONE.with(vec![]),
-                });
+                assert_eq!(
+                    ret[0],
+                    ObjectType::Concrete {
+                        name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("T")))),
+                        generics: Span::NONE.with(vec![]),
+                    }
+                );
             }
             _ => panic!("expected ObjectType::Func, got {:?}", ty),
         }
@@ -1445,14 +1475,20 @@ mod tests {
                 assert!(generics.is_empty());
                 assert!(args.is_empty());
                 assert_eq!(ret.len(), 2);
-                assert_eq!(ret[0], ObjectType::Concrete {
-                    name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("T")))),
-                    generics: Span::NONE.with(vec![]),
-                });
-                assert_eq!(ret[1], ObjectType::Concrete {
-                    name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("U")))),
-                    generics: Span::NONE.with(vec![]),
-                });
+                assert_eq!(
+                    ret[0],
+                    ObjectType::Concrete {
+                        name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("T")))),
+                        generics: Span::NONE.with(vec![]),
+                    }
+                );
+                assert_eq!(
+                    ret[1],
+                    ObjectType::Concrete {
+                        name: Span::NONE.with(ItemPath::single(Span::NONE.with(i("U")))),
+                        generics: Span::NONE.with(vec![]),
+                    }
+                );
             }
             _ => panic!("expected ObjectType::Func, got {:?}", ty),
         }

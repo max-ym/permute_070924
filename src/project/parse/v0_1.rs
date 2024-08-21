@@ -219,6 +219,14 @@ impl ItemPath {
     }
 }
 
+impl From<&[Spanned<IdentName>]> for ItemPath {
+    fn from(items: &[Spanned<IdentName>]) -> Self {
+        Self {
+            items: items.into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
