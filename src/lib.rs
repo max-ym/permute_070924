@@ -113,10 +113,13 @@ pub mod error_expl;
 pub fn init_log() {
     use log::*;
 
-    flexi_logger::Logger::with(LevelFilter::Trace)
+    let result = flexi_logger::Logger::with(LevelFilter::Trace)
         .format(format)
-        .start()
-        .unwrap();
+        .start();
+    if let Err(e) = result {
+        eprintln!("Failed to initialize logger: {e}");
+        return;
+    }
 
     fn format(
         write: &mut dyn std::io::Write,
