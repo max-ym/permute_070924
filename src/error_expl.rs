@@ -293,7 +293,6 @@ impl Span {
     /// Check if this span overlaps with another span in any part, either partially or fully.
     pub fn overlaps(&self, other: &Self) -> bool {
         self.start < other.end && self.end > other.start
-            || other.start < self.end && other.end > self.start
     }
 
     /// Combine two spans into one, that covers both of them.

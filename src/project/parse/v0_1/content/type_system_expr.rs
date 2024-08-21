@@ -127,7 +127,7 @@ trait Guard<'lex> {
     fn guard<T, E>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, E>) -> Result<T, E>;
 }
 
-impl<'lex, 'context> Guard<'lex> for LexIter<'lex> {
+impl<'lex> Guard<'lex> for LexIter<'lex> {
     fn guard<T, E>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, E>) -> Result<T, E> {
         let original = self.clone();
         match f(self) {
@@ -732,10 +732,10 @@ impl HeadLex {
                         Err(Ok(Span::from(range).with(next)))
                     }
                 } else {
-                    Err(Err(UnknownToken(iter.slice().to_owned()).into()))
+                    Err(Err(UnknownToken(iter.slice().to_owned())))
                 }
             } else {
-                Err(Err(UnexpectedEnd.into()))
+                Err(Err(UnexpectedEnd))
             }
         })
     }
@@ -759,11 +759,9 @@ impl HeadLex {
     fn spanprobe(&self, iter: &mut LexIter) -> Option<Span> {
         let backup = iter.clone();
 
-        if let Some((next, range)) = iter.next() {
-            if let Ok(next) = next {
-                if next == *self {
-                    return Some(Span::from(range));
-                }
+        if let Some((Ok(next), range)) = iter.next() {
+            if next == *self {
+                return Some(Span::from(range));
             }
         }
 
