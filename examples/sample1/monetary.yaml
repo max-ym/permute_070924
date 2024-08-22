@@ -1,6 +1,6 @@
 permute:
   version: 0.1
-  type: transform
+  type: logic
 
 type Monetary:
   inner: FixedPoint<Precision = 2>

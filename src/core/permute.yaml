@@ -1,6 +1,6 @@
 permute:
   version: 0.1
-  type: transform
+  type: logic
 
 extern type Integer:
   explain: |

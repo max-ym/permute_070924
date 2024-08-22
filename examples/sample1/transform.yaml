@@ -1,9 +1,9 @@
-# Transform files define the transformation logic for a given entity type.
-# New types can be defined in the transform file as well.
+# Logic files define the transformation logic.
+# New types can be defined in the logic file as well.
 
 permute:
   version: 0.1
-  type: transform
+  type: logic
 
 # Define the `is_terminated`, `is_active`, and `job_title` functions for the `EmploymentRecord` entity.
 # These functions can be put into scope by importing `EmploymentRecordExt`.

@@ -13,7 +13,7 @@
 //! # YAML
 //! ## File Kinds
 //! There are several kinds of files that can be used in the framework:
-//! - transform
+//! - logic
 //! - sink
 //! - source
 //! - feeder

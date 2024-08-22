@@ -5,8 +5,8 @@ use super::{IdentName, ItemPath};
 /// "Main" file type parsing.
 pub mod main;
 
-/// "Transform" file type parsing.
-pub mod transform;
+/// "Logic" file type parsing.
+pub mod logic;
 
 
 /// Type system expressions. This parses the lines defining implementations of the types,
