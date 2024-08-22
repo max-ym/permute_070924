@@ -3,7 +3,7 @@ use smallvec::{smallvec, SmallVec};
 
 use super::*;
 
-use crate::error_expl::{Span, Spanned};
+use crate::span::{Span, Spanned};
 
 /// Iterator over lexical elements.
 type LexIter<'a> = logos::SpannedIter<'a, HeadLex>;

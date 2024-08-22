@@ -106,6 +106,9 @@ pub mod expr;
 /// actual [crate::domain::Domain].
 pub mod contract;
 
+/// Structures to locate the elements in source file.
+pub mod span;
+
 /// Module to aid user in understanding errors and providing hints on how to fix them.
 pub mod error_expl;
 

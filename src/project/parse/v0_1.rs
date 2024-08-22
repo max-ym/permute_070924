@@ -1,7 +1,7 @@
 use serde::{Deserialize, Deserializer};
 use smallvec::{SmallVec, smallvec};
 
-use crate::error_expl::Spanned;
+use crate::span::Spanned;
 
 /// Parsing and basic validation of contents of the Permute YAML file, excluding the header.
 pub mod content;
