@@ -139,3 +139,121 @@ impl From<std::ops::Range<usize>> for Span {
         }
     }
 }
+
+/// A marker in the source text, containing the index, column, and line number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Marker {
+    idx: Pos,
+    col: Pos,
+    line: Pos,
+}
+
+impl Marker {
+    pub fn new(idx: Pos, col: Pos, line: Pos) -> Self {
+        Self { idx, col, line }
+    }
+
+    pub fn idx(&self) -> Pos {
+        self.idx
+    }
+
+    pub fn col(&self) -> Pos {
+        self.col
+    }
+
+    pub fn line(&self) -> Pos {
+        self.line
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A span between two markers.
+pub struct MarkSpan {
+    start: Marker,
+    end: Marker,
+}
+
+impl MarkSpan {
+    pub fn new(start: Marker, end: Marker) -> Self {
+        Self { start, end }
+    }
+
+    pub fn start(&self) -> Marker {
+        self.start
+    }
+
+    pub fn end(&self) -> Marker {
+        self.end
+    }
+}
+
+pub struct MarkSpanned<T> {
+    value: T,
+    span: MarkSpan,
+}
+
+impl<T> MarkSpanned<T> {
+    pub fn span(&self) -> MarkSpan {
+        self.span
+    }
+
+    pub fn split(self) -> (T, MarkSpan) {
+        (self.value, self.span)
+    }
+
+    pub fn into_inner(self) -> T {
+        self.value
+    }
+}
+
+impl<T> std::ops::Deref for MarkSpanned<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<T> std::ops::DerefMut for MarkSpanned<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
+
+impl<T> std::cmp::PartialEq for MarkSpanned<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<T> std::cmp::Eq for MarkSpanned<T> where T: Eq {}
+
+impl<T> Clone for MarkSpanned<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            span: self.span,
+        }
+    }
+}
+
+impl<T> Default for MarkSpanned<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            span: MarkSpan {
+                start: Marker::new(0, 0, 0),
+                end: Marker::new(0, 0, 0),
+            },
+        }
+    }
+}

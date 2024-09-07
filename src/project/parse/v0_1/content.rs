@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use crate::span::*;
 
 use super::{IdentName, ItemPath};
 
@@ -30,3 +30,9 @@ pub mod logic;
 ///   impl permute::EndlessIterator<Item = Integer> for RowSequence:
 /// ```
 pub mod type_system_expr;
+
+/// Any YAML file representation. It later is used to locate specific fields 
+/// expected in each file type.
+pub struct ParsedYamlFile(Vec<(MarkSpan, yaml_rust2::Yaml)>);
+
+mod yaml_loader;

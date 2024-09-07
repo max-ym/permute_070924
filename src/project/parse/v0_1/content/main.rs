@@ -4,42 +4,41 @@ use super::*;
 
 pub type BindName = IdentName;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct Main {
-    pub name: String,
-    pub cfg: HashMap<BindName, Binding>,
+    /// The name of the project.
+    name: Spanned<String>,
+
+    /// Span of the key "name".
+    name_t: Span,
+
+    /// Configuration of the project.
+    cfg: HashMap<Spanned<BindName>, Spanned<Binding>>,
 }
 
 /// A binding is a key-value pair.
 /// In YAML file it is represented as a map with a string representing the key and then a value,
 /// which can be a string, list, or map.
-#[derive(Debug, Deserialize)]
-#[serde(transparent)]
-pub struct Binding(HashMap<BindName, BindingValue>);
+#[derive(Debug)]
+pub struct Binding(HashMap<Spanned<BindName>, Spanned<BindingValue>>);
 
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum BindingValue {
     /// Value is a string.
     String(String),
 
     /// Value is a map of binding values.
-    Map(HashMap<BindName, BindingValue>),
+    Map(HashMap<Spanned<BindName>, Spanned<BindingValue>>),
 
     /// Value is a list of binding values.
-    List(Vec<BindingValue>),
+    List(Vec<Spanned<BindingValue>>),
+}
+
+impl BindingValue {
+    
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn sample_file() {
-        crate::init_log();
-
-        let file = crate::Sample1::Main.into();
-        let main: Main = serde_yml::from_str(file).unwrap();
-        println!("{main:#?}");
-    }
 }
